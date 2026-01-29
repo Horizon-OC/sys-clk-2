@@ -43,7 +43,7 @@ static s32 drawDynamicUltraText(
     const tsl::Color& staticColor,
     bool useNotificationMethod = false)
 {
-    static constexpr double cycleDuration = 1.6;
+    static constexpr double cycleDuration = 5.0f;
 
     const std::string name = "sys-clk";
     s32 currentX = startX;

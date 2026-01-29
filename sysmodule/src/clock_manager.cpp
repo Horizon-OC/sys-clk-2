@@ -286,17 +286,15 @@ void ClockManager::Tick()
             return;
         }
 
-        bool returnRaw = false;
         for (unsigned int module = 0; module < SysClkModule_EnumMax; module++)
         {
-            returnRaw = true;
             targetHz = this->context->overrideFreqs[module];
 
             if (!targetHz)
             {
-                targetHz = this->config->GetAutoClockHz(this->context->applicationId, (SysClkModule)module, this->context->profile, returnRaw);
+                targetHz = this->config->GetAutoClockHz(this->context->applicationId, (SysClkModule)module, this->context->profile, false);
                 if(!targetHz)
-                    targetHz = this->config->GetAutoClockHz(GLOBAL_PROFILE_ID, (SysClkModule)module, this->context->profile, returnRaw);
+                    targetHz = this->config->GetAutoClockHz(GLOBAL_PROFILE_ID, (SysClkModule)module, this->context->profile, false);
             }
 
             if (targetHz)
