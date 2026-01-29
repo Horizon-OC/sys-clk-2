@@ -1,17 +1,10 @@
-/*
- * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+/* --------------------------------------------------------------------------
+ * "THE BEER-WARE LICENSE" (Revision 42):
+ * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
+ * wrote this file. As long as you retain this notice you can do whatever you
+ * want with this stuff. If you meet any of us some day, and you think this
+ * stuff is worth it, you can buy us a beer in return.  - The sys-clk authors
+ * --------------------------------------------------------------------------
  */
 
 
@@ -19,15 +12,9 @@
 #include "../format.h"
 #include <tesla.hpp>
 #include <string>
-#include "cat.h"
-#include "ult_ext.h"
 
 tsl::elm::ListItem* SpeedoItem = NULL;
 tsl::elm::ListItem* IddqItem = NULL;
-ImageElement* CatImage = NULL;
-HideableCategoryHeader* CatHeader = NULL;
-HideableCustomDrawer* CatSpacer = NULL;
-int lightosClickCount = 0;
 
 AboutGui::AboutGui()
 {
@@ -59,99 +46,16 @@ void AboutGui::listUI()
     this->listElement->addItem(
         new tsl::elm::CategoryHeader("Developers")
     );
-
     this->listElement->addItem(
-        new tsl::elm::ListItem("Souldbminer")
-    );
-
-    // Create special clickable item for Lightos
-    auto lightosItem = new tsl::elm::ListItem("Lightos_");
-    lightosItem->setClickListener([this](u64 keys) -> bool {
-        if (keys & HidNpadButton_A) {
-            lightosClickCount++;
-            if (lightosClickCount >= 10) {
-                if (CatImage != NULL) CatImage->setVisible(true);
-                if (CatHeader != NULL) CatHeader->setVisible(true);
-                if (CatSpacer != NULL) CatSpacer->setVisible(true);
-            }
-            return true;
-        }
-        return false;
-    });
-    this->listElement->addItem(lightosItem);
-
-    // ---- Contributors ----
-    this->listElement->addItem(
-        new tsl::elm::CategoryHeader("Contributors")
+        new tsl::elm::ListItem("p-sam")
     );
 
     this->listElement->addItem(
-        new tsl::elm::ListItem("Dom")
+        new tsl::elm::ListItem("m4xw")
     );
 
     this->listElement->addItem(
-        new tsl::elm::ListItem("Blaise25")
-    );
-
-    // ---- Testers ----
-    this->listElement->addItem(
-        new tsl::elm::CategoryHeader("Testers")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("Dom")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("Samybigio2011")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("Delta")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("Miki1305")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("Happy")
-    );
-    
-    this->listElement->addItem(
-        new tsl::elm::ListItem("Flopsider")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("Winnerboi77")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("Blaise25")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("WE1ZARD")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("Alvise")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("TDRR")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("agjeococh")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("Xenshen")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("Frost")
+        new tsl::elm::ListItem("natinusala")
     );
 
     // ---- Special Thanks ----
@@ -164,23 +68,11 @@ void AboutGui::listUI()
     );
 
     this->listElement->addItem(
-        new tsl::elm::ListItem("KazushiMe - Switch OC Suite")
+        new tsl::elm::ListItem("KazushiMe - sys-clk-OC")
     );
 
     this->listElement->addItem(
-        new tsl::elm::ListItem("hanai3bi - Switch OC Suite & EOS")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("NaGaa95 - L4T-OC-Kernel")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("B3711 - EOS")
-    );
-
-    this->listElement->addItem(
-        new tsl::elm::ListItem("RetroNX - sys-clk")
+        new tsl::elm::ListItem("hanai3bi - sys-clk-EOS")
     );
 
     this->listElement->addItem(
@@ -190,19 +82,6 @@ void AboutGui::listUI()
     this->listElement->addItem(
         new tsl::elm::ListItem("MasaGratoR - Status Monitor")
     );
-
-    // Create cat elements but hide them initially
-    CatHeader = new HideableCategoryHeader("Cat");
-    CatHeader->setVisible(false);
-    this->listElement->addItem(CatHeader);
-    
-    CatImage = new ImageElement(CAT_DATA, CAT_WIDTH, CAT_HEIGHT);
-    CatImage->setVisible(false);
-    this->listElement->addItem(CatImage);
-
-    CatSpacer = new HideableCustomDrawer(75);
-    CatSpacer->setVisible(false);
-    this->listElement->addItem(CatSpacer);
 }
 
 void AboutGui::update()

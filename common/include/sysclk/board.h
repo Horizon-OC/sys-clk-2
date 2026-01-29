@@ -1,20 +1,3 @@
-/*
- * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
- */
- 
 /* --------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
@@ -50,15 +33,15 @@ typedef enum
 } HorizonOCConsoleType;
 
 typedef enum {
-    HocClkVoltage_SOC = 0,
-    HocClkVoltage_EMCVDD2,
-    HocClkVoltage_CPU,
-    HocClkVoltage_GPU,
-    HocClkVoltage_EMCVDDQ_MarikoOnly,
-    HocClkVoltage_Display,
-    HocClkVoltage_Battery,
-    HocClkVoltage_EnumMax,
-} HocClkVoltage;
+    SysClkVoltage_SOC = 0,
+    SysClkVoltage_EMCVDD2,
+    SysClkVoltage_CPU,
+    SysClkVoltage_GPU,
+    SysClkVoltage_EMCVDDQ_MarikoOnly,
+    SysClkVoltage_Display,
+    SysClkVoltage_Battery,
+    SysClkVoltage_EnumMax,
+} SysClkVoltage;
 
 typedef enum
 {
@@ -99,10 +82,10 @@ typedef enum
 {
     SysClkPartLoad_EMC = 0,
     SysClkPartLoad_EMCCpu,
-    HocClkPartLoad_GPU,
-    HocClkPartLoad_CPUAvg,
-    HocClkPartLoad_BAT,
-    HocClkPartLoad_FAN,
+    SysClkPartLoad_GPU,
+    SysClkPartLoad_CPUAvg,
+    SysClkPartLoad_BAT,
+    SysClkPartLoad_FAN,
     SysClkPartLoad_EnumMax
 } SysClkPartLoad;
 
@@ -193,21 +176,21 @@ static inline const char* sysclkFormatProfile(SysClkProfile profile, bool pretty
 }
 
 
-static inline const char* hocClkFormatVoltage(HocClkVoltage voltage, bool pretty)
+static inline const char* SysClkFormatVoltage(SysClkVoltage voltage, bool pretty)
 {
     switch(voltage)
     {
-        case HocClkVoltage_CPU:
+        case SysClkVoltage_CPU:
             return pretty ? "CPU" : "cpu";
-        case HocClkVoltage_GPU:
+        case SysClkVoltage_GPU:
             return pretty ? "GPU" : "gpu";
-        case HocClkVoltage_EMCVDD2:
+        case SysClkVoltage_EMCVDD2:
             return pretty ? "VDD2" : "emcvdd2";
-        case HocClkVoltage_EMCVDDQ_MarikoOnly:
+        case SysClkVoltage_EMCVDDQ_MarikoOnly:
             return pretty ? "VDDQ" : "vddq";
-        case HocClkVoltage_SOC:
+        case SysClkVoltage_SOC:
             return pretty ? "SOC" : "soc";
-        case HocClkVoltage_Display:
+        case SysClkVoltage_Display:
             return pretty ? "Display" : "display";
         default:
             return NULL;

@@ -17,7 +17,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 # INCLUDES is a list of directories containing header files
 # EXEFS_SRC is the optional input directory containing data copied into exefs, if anything this normally should only contain "main.npdm".
 #---------------------------------------------------------------------------------
-TARGET		:=	horizon-oc-overlay
+TARGET		:=	sys-clk-overlay
 BUILD		:=	build
 OUTDIR		:=	out
 RESOURCES	:=	res
@@ -25,9 +25,8 @@ SOURCES		:=	src src/ui/gui src/ui/elements ../common/src ../common/src/client
 DATA		:=	data
 INCLUDES	:=	../common/include
 EXEFS_SRC	:=	exefs_src
-IS_MINIMAL	:=	0
 
-APP_TITLE	:=	Horizon OC Zeus
+APP_TITLE	:=	sys-clk-2
 NO_ICON		:=	1
 
 
@@ -39,13 +38,13 @@ include ${TOPDIR}/lib/libultrahand/ultrahand.mk
 # version control constants
 #---------------------------------------------------------------------------------
 #TARGET_VERSION	:= $(shell git describe --dirty --always --tags)
-APP_VERSION		:= 0.33
+APP_VERSION		:= 2.0.0
 TARGET_VERSION := $(APP_VERSION)
 
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-DEFINES := -DDISABLE_IPC -DTARGET="\"$(TARGET)\"" -DTARGET_VERSION="\"$(TARGET_VERSION)\"" -DIS_MINIMAL=$(IS_MINIMAL)
+DEFINES := -DDISABLE_IPC -DTARGET="\"$(TARGET)\"" -DTARGET_VERSION="\"$(TARGET_VERSION)\""
 
 ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 

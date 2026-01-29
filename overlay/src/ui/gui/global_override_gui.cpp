@@ -1,20 +1,12 @@
-/*
- *
- * Copyright (c) Souldbminer and Horizon OC Contributors
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
+/* --------------------------------------------------------------------------
+ * "THE BEER-WARE LICENSE" (Revision 42):
+ * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
+ * wrote this file. As long as you retain this notice you can do whatever you
+ * want with this stuff. If you meet any of us some day, and you think this
+ * stuff is worth it, you can buy us a beer in return.  - The sys-clk authors
+ * --------------------------------------------------------------------------
  */
+
 #include "../format.h"
 #include "fatal_gui.h"
 #include "global_override_gui.h"
@@ -280,12 +272,6 @@ void GlobalOverrideGui::listUI()
     this->addModuleListItem(SysClkModule_CPU);
     this->addModuleListItem(SysClkModule_GPU);
     this->addModuleListItem(SysClkModule_MEM);
-    #if IS_MINIMAL == 0
-        ValueThresholds lcdThresholds(60, 65);
-        if(!IsHoag() && configList.values[HorizonOCConfigValue_OverwriteRefreshRate])
-            this->addModuleListItemValue(HorizonOCModule_Display, "Display", 40, configList.values[HorizonOCConfigValue_EnableUnsafeDisplayFreqs] ? 72 : 60, 1, " Hz", 1, 0, lcdThresholds);
-    #endif
-    this->addModuleToggleItem(HorizonOCModule_Governor);
 }
 
 void GlobalOverrideGui::refresh()
@@ -296,21 +282,6 @@ void GlobalOverrideGui::refresh()
         return;
 
     for (std::uint16_t m = 0; m < SysClkModule_EnumMax; m++) {
-        if (m == HorizonOCModule_Governor) {
-            auto *toggle =
-            static_cast<tsl::elm::ToggleListItem *>(this->listItems[m]);
-            if (!toggle)
-                continue;
-
-            bool newState = this->context->overrideFreqs[m] != 0;
-
-            if (toggle->getState() != newState) {
-                toggle->setState(newState);
-            }
-
-            continue;
-        }
-
         if (this->listItems[m] != nullptr &&
             this->listHz[m] != this->context->overrideFreqs[m]) {
             

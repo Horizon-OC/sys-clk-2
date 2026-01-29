@@ -1,20 +1,3 @@
-/*
- * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
- */
- 
 /* --------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
@@ -40,7 +23,7 @@ void FatalGui::openWithResultCode(std::string tag, Result rc)
     info.append(rcStr, snprintf(rcStr, sizeof(rcStr), "\n\n[0x%x] %04d-%04d", rc, R_MODULE(rc), R_DESCRIPTION(rc)));
 
     tsl::changeTo<FatalGui>(
-        "Could not connect to hoc-clk sysmodule.\n\n"
+        "Could not connect to sys-clk sysmodule.\n\n"
         "\n"
         "Please make sure everything is\n\n"
         "correctly installed and enabled.",

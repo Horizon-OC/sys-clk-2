@@ -1,20 +1,3 @@
-/*
- * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
- * for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
- */
-
 /* --------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
@@ -48,16 +31,10 @@ std::string getVersionString() {
     return std::string(buf);
 }
 
-// ---------------------------------------------
-// AQUATIC BLUE COLORS (4-bit color space)
-// ---------------------------------------------
-static constexpr tsl::Color dynamicLogoRGB1 = tsl::Color(0, 4, 8, 15);   // Deep ocean blue
-static constexpr tsl::Color dynamicLogoRGB2 = tsl::Color(7, 15, 15, 15); // Bright aqua cyan
-static constexpr tsl::Color STATIC_AQUA     = tsl::Color(2, 10, 12, 15); // Mid aqua
+static constexpr tsl::Color dynamicLogoRGB1 = tsl::Color(0x1, 0xd, 0xd, 15);
+static constexpr tsl::Color dynamicLogoRGB2 = tsl::Color(0xf, 0x8, 0x0, 15);
+static constexpr tsl::Color STATIC_CLR     = tsl::Color(0xf, 0x8, 0x0, 15);
 
-// ---------------------------------------------
-// FULLY ENHANCED ANIMATED LOGO EFFECT
-// ---------------------------------------------
 static s32 drawDynamicUltraText(
     tsl::gfx::Renderer* renderer,
     s32 startX,
@@ -68,7 +45,7 @@ static s32 drawDynamicUltraText(
 {
     static constexpr double cycleDuration = 1.6;
 
-    const std::string name = "Horizon OC Zeus";
+    const std::string name = "sys-clk";
     s32 currentX = startX;
 
     const u64 currentTime_ns = armTicksToNs(armGetSystemTick());
@@ -89,15 +66,9 @@ static s32 drawDynamicUltraText(
         double s1 = n * n * (3.0 - 2.0 * n);
         double blend = std::clamp(s1, 0.0, 1.0);
 
-        // ---------------------------------------------
-        // Glow Pulse (brightness modulation)
-        // ---------------------------------------------
         double glow = (cos(phase * 1.5) + 1.0) * 0.5;
         double brightness = 0.75 + glow * 0.25;
 
-        // ---------------------------------------------
-        // Color interpolation (4-bit!)
-        // ---------------------------------------------
         u8 r = static_cast<u8>(
             (dynamicLogoRGB1.r + (dynamicLogoRGB2.r - dynamicLogoRGB1.r) * blend) * brightness
         );
@@ -112,21 +83,8 @@ static s32 drawDynamicUltraText(
         g = std::clamp<u8>(g, 0, 15);
         b = std::clamp<u8>(b, 0, 15);
 
-        // ---------------------------------------------
-        // ZEUS Lightning Flash
-        // ---------------------------------------------
-        bool lightning = (fmod(timeNow, 5.0) < 0.15);
-        if (lightning) {
-            r = std::min<u8>(r + 4, 15);
-            g = std::min<u8>(g + 4, 15);
-            b = std::min<u8>(b + 15, 15); // strong blue spike
-        }
-
         tsl::Color color(r, g, b, 15);
 
-        // ---------------------------------------------
-        // Static Position (no vertical wobble)
-        // ---------------------------------------------
         std::string ls(1, letter);
 
         if (useNotificationMethod)
@@ -138,9 +96,6 @@ static s32 drawDynamicUltraText(
     return currentX;
 }
 
-// ---------------------------------------------
-// PRE-DRAW HOOK
-// ---------------------------------------------
 void BaseGui::preDraw(tsl::gfx::Renderer* renderer)
 {
     drawDynamicUltraText(
@@ -148,14 +103,11 @@ void BaseGui::preDraw(tsl::gfx::Renderer* renderer)
         LOGO_X,
         LOGO_Y,
         LOGO_LABEL_FONT_SIZE,
-        STATIC_AQUA,
+        STATIC_CLR,
         false
     );
 }
 
-// ---------------------------------------------
-// UI SETUP
-// ---------------------------------------------
 tsl::elm::Element* BaseGui::createUI()
 {
     BaseFrame* rootFrame = new BaseFrame(this);
@@ -163,9 +115,6 @@ tsl::elm::Element* BaseGui::createUI()
     return rootFrame;
 }
 
-// ---------------------------------------------
-// LIVE UPDATE
-// ---------------------------------------------
 void BaseGui::update()
 {
     this->refresh();

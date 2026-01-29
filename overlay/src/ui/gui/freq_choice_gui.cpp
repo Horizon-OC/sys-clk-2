@@ -1,20 +1,3 @@
-/*
- * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
- */
- 
 /* --------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
@@ -59,7 +42,6 @@ tsl::elm::ListItem* FreqChoiceGui::createFreqListItem(std::uint32_t hz, bool sel
     if (selected)
         text += " \uE14B";
 
-    // NEW: Right-side label
     std::string rightText = "";
     auto it = labels.find(hz);
     if (it != labels.end())
@@ -118,33 +100,6 @@ void FreqChoiceGui::listUI()
     {
         std::uint32_t hz = this->hzList[i];
         uint32_t mhz = hz / 1000000;
-
-        if (checkMax && IsMariko()) {
-            if (moduleName == "cpu" &&
-                this->configList->values[HocClkConfigValue_MarikoMaxCpuClock] < mhz)
-                continue;
-
-            // if (moduleName == "gpu" &&
-            //     this->configList->values[HocClkConfigValue_MarikoMaxGpuClock] < mhz)
-            //     continue;
-
-            // if (moduleName == "mem" &&
-            //     this->configList->values[HocClkConfigValue_MarikoMaxMemClock] < mhz)
-            //     continue;
-
-        } else if (checkMax && IsErista()) {
-            if (moduleName == "cpu" &&
-                this->configList->values[HocClkConfigValue_EristaMaxCpuClock] < mhz)
-                continue;
-
-            if (moduleName == "gpu" &&
-                this->configList->values[HocClkConfigValue_EristaMaxGpuClock] < mhz)
-                continue;
-
-            // if (moduleName == "mem" &&
-            //     this->configList->values[HocClkConfigValue_EristaMaxMemClock] < mhz)
-            //     continue;
-        }
 
         if (moduleName == "mem" && mhz <= 600)
             continue;

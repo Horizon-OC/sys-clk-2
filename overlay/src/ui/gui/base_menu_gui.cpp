@@ -1,20 +1,3 @@
-/*
- * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * 
- */
- 
 /* --------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
@@ -58,7 +41,7 @@ void BaseMenuGui::preDraw(tsl::gfx::Renderer* renderer) {
     
     // All constants pre-calculated and cached
     static constexpr const char* const labels[] = {
-        "App ID", "Profile", "CPU", "GPU", "MEM", "SoC", "Board", "Skin", "Now", "Avg", "BAT", "PMIC", "FAN", "DISP"
+        "App ID", "Profile", "CPU", "GPU", "MEM", "SoC", "Board", "Skin", "Now", "Avg", "BAT", "PMIC", "FAN",
     };
 
     static constexpr u32 dataPositions[6] = {63-3+3, 200-1, 344-1-3, 200-1, 342-1, 321-1};
@@ -154,10 +137,6 @@ void BaseMenuGui::preDraw(tsl::gfx::Renderer* renderer) {
 
     renderer->drawString(displayStrings[20], false, dataPositions[0], y, SMALL_TEXT_SIZE, tempColors[HorizonOCThermalSensor_Battery]);  // Battery
 
-    renderer->drawString(labels[13], false, positions[4], y, SMALL_TEXT_SIZE, tsl::sectionTextColor); // disp label
-
-    renderer->drawString(displayStrings[25], false, dataPositions[2], y, SMALL_TEXT_SIZE, tsl::infoTextColor);   // disp freq
-
     renderer->drawString(labels[12], false, positions[3], y, SMALL_TEXT_SIZE, tsl::sectionTextColor); // fan label
 
     renderer->drawString(displayStrings[24], false, dataPositions[1], y, SMALL_TEXT_SIZE, tsl::infoTextColor);   // fan speed
@@ -166,9 +145,6 @@ void BaseMenuGui::preDraw(tsl::gfx::Renderer* renderer) {
 
     renderer->drawString(displayStrings[21], false, dataPositions[0], y, SMALL_TEXT_SIZE, tsl::infoTextColor);   // Bat voltage
     renderer->drawString(displayStrings[23], false, positions[2] - 2, y, SMALL_TEXT_SIZE, tsl::infoTextColor);  // Bat Age
-
-
-    renderer->drawString(displayStrings[26], false, dataPositions[2], y, SMALL_TEXT_SIZE, tsl::infoTextColor);   // disp volt
 
     y+=20;
 }
@@ -231,17 +207,17 @@ void BaseMenuGui::refresh()
     sprintf(displayStrings[7], "%u.%u MHz", hz / 1000000U, (hz / 100000U) % 10U);
     
     // Voltages
-    sprintf(displayStrings[8], "%.1f mV", context->voltages[HocClkVoltage_CPU] / 1000.0);
-    sprintf(displayStrings[9], "%.1f mV", context->voltages[HocClkVoltage_GPU] / 1000.0);
+    sprintf(displayStrings[8], "%.1f mV", context->voltages[SysClkVoltage_CPU] / 1000.0);
+    sprintf(displayStrings[9], "%.1f mV", context->voltages[SysClkVoltage_GPU] / 1000.0);
 
     // Memory voltage (handle VDD case)
     if (IsMariko()) {
         //sprintf(displayStrings[10], "%u%u mV", vddVoltageUv / 1000U, emcVoltageUv / 1000U);
         //sprintf(displayStrings[10], "%u%.1f mV", vddVoltageUv / 1000U, emcVoltageUv / 1000.0f);
-        sprintf(displayStrings[10], "%u.%u%u mV", context->voltages[HocClkVoltage_EMCVDD2] / 1000U, (context->voltages[HocClkVoltage_EMCVDD2] % 1000U) / 100U, context->voltages[HocClkVoltage_EMCVDDQ_MarikoOnly] / 1000U);
+        sprintf(displayStrings[10], "%u.%u%u mV", context->voltages[SysClkVoltage_EMCVDD2] / 1000U, (context->voltages[SysClkVoltage_EMCVDD2] % 1000U) / 100U, context->voltages[SysClkVoltage_EMCVDDQ_MarikoOnly] / 1000U);
     } else {
         //sprintf(displayStrings[10], "%u mV", vddVoltageUv / 1000U);
-        sprintf(displayStrings[10], "%u.%u%u mV", context->voltages[HocClkVoltage_EMCVDD2] / 1000U, (context->voltages[HocClkVoltage_EMCVDD2] % 1000U) / 100U, context->voltages[HocClkVoltage_EMCVDD2] / 1000U);
+        sprintf(displayStrings[10], "%u.%u%u mV", context->voltages[SysClkVoltage_EMCVDD2] / 1000U, (context->voltages[SysClkVoltage_EMCVDD2] % 1000U) / 100U, context->voltages[SysClkVoltage_EMCVDD2] / 1000U);
     }
     
     // Temperatures and pre-compute colors
@@ -258,28 +234,26 @@ void BaseMenuGui::refresh()
     tempColors[SysClkThermalSensor_Skin] = tsl::GradientColor(millis * 0.001f);
     
     // SOC voltage (if available)
-    sprintf(displayStrings[14], "%u mV", context->voltages[HocClkVoltage_SOC] / 1000U);
+    sprintf(displayStrings[14], "%u mV", context->voltages[SysClkVoltage_SOC] / 1000U);
     
     // Power
-    sprintf(displayStrings[15], "%d mW", context->power[0]); // Now
-    sprintf(displayStrings[16], "%d mW", context->power[1]); // Avg
+    sprintf(displayStrings[15], "%d mW", context->power[SysClkPowerSensor_Now]); // Now
+    sprintf(displayStrings[16], "%d mW", context->power[SysClkPowerSensor_Avg]); // Avg
 
 
-    sprintf(displayStrings[17], "%u%%", context->partLoad[HocClkPartLoad_GPU] / 10);
+    sprintf(displayStrings[17], "%u%%", context->partLoad[SysClkPartLoad_GPU] / 10);
     sprintf(displayStrings[18], "%u%%", context->partLoad[SysClkPartLoad_EMC] / 10);
-    // sprintf(displayStrings[19], "%u", context->partLoad[HocClkPartLoad_CPUAvg]);
+    // sprintf(displayStrings[19], "%u", context->partLoad[SysClkPartLoad_CPUAvg]);
 
     millis = context->temps[HorizonOCThermalSensor_Battery]; // Battery
     sprintf(displayStrings[20], "%u.%u °C", millis / 1000U, (millis % 1000U) / 100U);
     tempColors[HorizonOCThermalSensor_Battery] = tsl::GradientColor(millis * 0.001f);
 
-    sprintf(displayStrings[21], "%d mV", context->voltages[HocClkVoltage_Battery]); // BAT AVG
+    sprintf(displayStrings[21], "%d mV", context->voltages[SysClkVoltage_Battery]); // BAT AVG
 
-    sprintf(displayStrings[23], "%u%%", context->partLoad[HocClkPartLoad_BAT] / 1000);
+    sprintf(displayStrings[23], "%u%%", context->partLoad[SysClkPartLoad_BAT] / 1000);
 
-    sprintf(displayStrings[24], "%u%%", context->partLoad[HocClkPartLoad_FAN]);
-
-    sprintf(displayStrings[25], "%u Hz", context->realFreqs[HorizonOCModule_Display]);
+    sprintf(displayStrings[24], "%u%%", context->partLoad[SysClkPartLoad_FAN]);
 
     //sprintf(displayStrings[26], "%u", context->speedos[HorizonOCSpeedo_CPU]);
 
