@@ -1,5 +1,21 @@
 /*
- * --------------------------------------------------------------------------
+ * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
+ 
+/* --------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
  * wrote this file. As long as you retain this notice you can do whatever you
@@ -7,6 +23,7 @@
  * stuff is worth it, you can buy us a beer in return.  - The sys-clk authors
  * --------------------------------------------------------------------------
  */
+
 
 #pragma once
 
@@ -18,11 +35,10 @@
 class IpcService
 {
   public:
+
     IpcService(ClockManager* clockMgr);
     virtual ~IpcService();
     void SetRunning(bool running);
-
-  protected:
     static void ProcessThreadFunc(void* arg);
     static Result ServiceHandlerFunc(void* arg, const IpcServerRequest* r, std::uint8_t* out_data, size_t* out_dataSize);
 
@@ -38,10 +54,16 @@ class IpcService
     Result GetConfigValues(SysClkConfigValueList* out_configValues);
     Result SetConfigValues(SysClkConfigValueList* configValues);
     Result GetFreqList(SysClkIpc_GetFreqList_Args* args, std::uint32_t* out_list, std::size_t size, std::uint32_t* out_count);
-
+    Result SetReverseNXRTMode(ReverseNXMode mode);
+    Result SetKipData();
+    Result GetKipData();
+    Result UpdateEmcRegs();
+    Result CalculateGPUVmin();
     bool running;
     Thread thread;
     LockableMutex threadMutex;
     IpcServer server;
     ClockManager* clockMgr;
+  protected:
+
 };

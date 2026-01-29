@@ -1,5 +1,21 @@
 /*
- * --------------------------------------------------------------------------
+ * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
+ 
+/* --------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
  * wrote this file. As long as you retain this notice you can do whatever you
@@ -7,6 +23,7 @@
  * stuff is worth it, you can buy us a beer in return.  - The sys-clk authors
  * --------------------------------------------------------------------------
  */
+
 
 #pragma once
 
@@ -23,6 +40,28 @@ typedef enum
 
 typedef enum
 {
+    HorizonOCConsoleType_Icosa = 0,
+    HorizonOCConsoleType_Copper,
+    HorizonOCConsoleType_Hoag,
+    HorizonOCConsoleType_Iowa,
+    HorizonOCConsoleType_Calcio,
+    HorizonOCConsoleType_Aula,
+    HorizonOCConsoleType_EnumMax,
+} HorizonOCConsoleType;
+
+typedef enum {
+    HocClkVoltage_SOC = 0,
+    HocClkVoltage_EMCVDD2,
+    HocClkVoltage_CPU,
+    HocClkVoltage_GPU,
+    HocClkVoltage_EMCVDDQ_MarikoOnly,
+    HocClkVoltage_Display,
+    HocClkVoltage_Battery,
+    HocClkVoltage_EnumMax,
+} HocClkVoltage;
+
+typedef enum
+{
     SysClkProfile_Handheld = 0,
     SysClkProfile_HandheldCharging,
     SysClkProfile_HandheldChargingUSB,
@@ -36,7 +75,9 @@ typedef enum
     SysClkModule_CPU = 0,
     SysClkModule_GPU,
     SysClkModule_MEM,
-    SysClkModule_EnumMax
+    HorizonOCModule_Governor,
+    HorizonOCModule_Display,
+    SysClkModule_EnumMax,
 } SysClkModule;
 
 typedef enum
@@ -44,6 +85,8 @@ typedef enum
     SysClkThermalSensor_SOC = 0,
     SysClkThermalSensor_PCB,
     SysClkThermalSensor_Skin,
+    HorizonOCThermalSensor_Battery,
+    HorizonOCThermalSensor_PMIC,
     SysClkThermalSensor_EnumMax
 } SysClkThermalSensor;
 
@@ -56,10 +99,31 @@ typedef enum
 
 typedef enum
 {
-    SysClkRamLoad_All = 0,
-    SysClkRamLoad_Cpu,
-    SysClkRamLoad_EnumMax
-} SysClkRamLoad;
+    SysClkPartLoad_EMC = 0,
+    SysClkPartLoad_EMCCpu,
+    HocClkPartLoad_GPU,
+    HocClkPartLoad_CPUAvg,
+    HocClkPartLoad_BAT,
+    HocClkPartLoad_FAN,
+    SysClkPartLoad_EnumMax
+} SysClkPartLoad;
+
+
+typedef enum
+{
+    ReverseNX_NotFound = 0,
+    ReverseNX_SystemDefault = 0,
+    ReverseNX_Handheld,
+    ReverseNX_Docked,
+} ReverseNXMode;
+
+
+typedef enum {
+    HorizonOCSpeedo_CPU = 0,
+    HorizonOCSpeedo_GPU,
+    HorizonOCSpeedo_SOC,
+    HorizonOCSpeedo_EnumMax,
+} HorizonOCSpeedo;
 
 #define SYSCLK_ENUM_VALID(n, v) ((v) < n##_EnumMax)
 
@@ -73,8 +137,12 @@ static inline const char* sysclkFormatModule(SysClkModule module, bool pretty)
             return pretty ? "GPU" : "gpu";
         case SysClkModule_MEM:
             return pretty ? "Memory" : "mem";
+        case HorizonOCModule_Display:
+            return pretty ? "Display" : "display";
+        case HorizonOCModule_Governor:
+            return pretty ? "Governor" : "gov";
         default:
-            return NULL;
+            return "null";
     }
 }
 
@@ -88,6 +156,11 @@ static inline const char* sysclkFormatThermalSensor(SysClkThermalSensor thermSen
             return pretty ? "PCB" : "pcb";
         case SysClkThermalSensor_Skin:
             return pretty ? "Skin" : "skin";
+        case HorizonOCThermalSensor_Battery:
+            return pretty ? "BAT" : "battery";
+        case HorizonOCThermalSensor_PMIC:
+            return pretty ? "PMIC" : "pmic";
+
         default:
             return NULL;
     }
@@ -119,7 +192,29 @@ static inline const char* sysclkFormatProfile(SysClkProfile profile, bool pretty
         case SysClkProfile_HandheldChargingUSB:
             return pretty ? "USB Charger" : "handheld_charging_usb";
         case SysClkProfile_HandheldChargingOfficial:
-            return pretty ? "Official Charger" : "handheld_charging_official";
+            return pretty ? "PD Charger" : "handheld_charging_official";
+        default:
+            return NULL;
+    }
+}
+
+
+static inline const char* hocClkFormatVoltage(HocClkVoltage voltage, bool pretty)
+{
+    switch(voltage)
+    {
+        case HocClkVoltage_CPU:
+            return pretty ? "CPU" : "cpu";
+        case HocClkVoltage_GPU:
+            return pretty ? "GPU" : "gpu";
+        case HocClkVoltage_EMCVDD2:
+            return pretty ? "VDD2" : "emcvdd2";
+        case HocClkVoltage_EMCVDDQ_MarikoOnly:
+            return pretty ? "VDDQ" : "vddq";
+        case HocClkVoltage_SOC:
+            return pretty ? "SOC" : "soc";
+        case HocClkVoltage_Display:
+            return pretty ? "Display" : "display";
         default:
             return NULL;
     }

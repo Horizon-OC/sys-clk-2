@@ -1,5 +1,21 @@
 /*
- * --------------------------------------------------------------------------
+ * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
+ 
+/* --------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
  * wrote this file. As long as you retain this notice you can do whatever you
@@ -8,12 +24,13 @@
  * --------------------------------------------------------------------------
  */
 
+
 #include "ipc_service.h"
 #include <cstring>
 #include <switch.h>
 #include "file_utils.h"
 #include "errors.h"
-
+#include "clock_manager.h"
 IpcService::IpcService(ClockManager* clockMgr)
 {
     std::int32_t priority;
@@ -26,6 +43,7 @@ IpcService::IpcService(ClockManager* clockMgr)
 
     this->running = false;
     this->clockMgr = clockMgr;
+    
 }
 
 void IpcService::SetRunning(bool running)
@@ -116,10 +134,13 @@ Result IpcService::ServiceHandlerFunc(void* arg, const IpcServerRequest* r, u8* 
             break;
 
         case SysClkIpcCmd_GetProfiles:
-            if(r->data.size >= sizeof(std::uint64_t))
+            if(r->data.size >= sizeof(std::uint64_t) && r->hipc.meta.num_recv_buffers >= 1)
             {
-                *out_dataSize = sizeof(SysClkTitleProfileList);
-                return ipcSrv->GetProfiles((std::uint64_t*)r->data.ptr, (SysClkTitleProfileList*)out_data);
+                size_t bufSize = hipcGetBufferSize(r->hipc.data.recv_buffers);
+                if(bufSize >= sizeof(SysClkTitleProfileList))
+                {
+                    return ipcSrv->GetProfiles((std::uint64_t*)r->data.ptr, (SysClkTitleProfileList*)hipcGetBufferAddress(r->hipc.data.recv_buffers));
+                }
             }
             break;
 
@@ -145,16 +166,26 @@ Result IpcService::ServiceHandlerFunc(void* arg, const IpcServerRequest* r, u8* 
             break;
 
         case SysClkIpcCmd_GetConfigValues:
-            *out_dataSize = sizeof(SysClkConfigValueList);
-            return ipcSrv->GetConfigValues((SysClkConfigValueList*)out_data);
-
-        case SysClkIpcCmd_SetConfigValues:
-            if(r->data.size >= sizeof(SysClkConfigValueList))
+            if(r->hipc.meta.num_recv_buffers >= 1)
             {
-                return ipcSrv->SetConfigValues((SysClkConfigValueList*)r->data.ptr);
+                size_t bufSize = hipcGetBufferSize(r->hipc.data.recv_buffers);
+                if(bufSize >= sizeof(SysClkConfigValueList))
+                {
+                    return ipcSrv->GetConfigValues((SysClkConfigValueList*)hipcGetBufferAddress(r->hipc.data.recv_buffers));
+                }
             }
             break;
 
+        case SysClkIpcCmd_SetConfigValues:
+            if(r->hipc.meta.num_send_buffers >= 1)
+            {
+                size_t bufSize = hipcGetBufferSize(r->hipc.data.send_buffers);
+                if(bufSize >= sizeof(SysClkConfigValueList))
+                {
+                    return ipcSrv->SetConfigValues((SysClkConfigValueList*)hipcGetBufferAddress(r->hipc.data.send_buffers));
+                }
+            }
+            break;
         case SysClkIpcCmd_GetFreqList:
             if(r->data.size >= sizeof(SysClkIpc_GetFreqList_Args) && r->hipc.meta.num_recv_buffers >= 1)
             {
@@ -165,6 +196,27 @@ Result IpcService::ServiceHandlerFunc(void* arg, const IpcServerRequest* r, u8* 
                     hipcGetBufferSize(r->hipc.data.recv_buffers),
                     (std::uint32_t*)out_data
                 );
+            }
+            break;
+        case SysClkIpcCmd_SetReverseNXRTMode:
+            if (r->data.size >= sizeof(ReverseNXMode)) {
+                ReverseNXMode mode = *((ReverseNXMode*)r->data.ptr);
+                return ipcSrv->SetReverseNXRTMode(mode);
+            }
+            break;
+        case HocClkIpcCmd_SetKipData:
+            if (r->data.size >= 0) {
+                return ipcSrv->SetKipData();
+            }
+            break;
+        case HocClkIpcCmd_UpdateEmcRegs:
+            if (r->data.size >= 0) {
+                return ipcSrv->UpdateEmcRegs();
+            }
+            break;
+        case HocClkIpcCmd_CalculateGpuVmin:
+            if (r->data.size >= 0) {
+                return ipcSrv->CalculateGPUVmin();
             }
             break;
     }
@@ -316,5 +368,32 @@ Result IpcService::GetFreqList(SysClkIpc_GetFreqList_Args* args, std::uint32_t* 
 
     this->clockMgr->GetFreqList(args->module, out_list, args->maxCount, out_count);
 
+    return 0;
+}
+
+Result IpcService::SetReverseNXRTMode(ReverseNXMode mode) {
+    return 0;
+}
+
+Result IpcService::SetKipData() {
+    this->clockMgr->SetKipData();
+    
+    return 0;
+}
+
+Result IpcService::GetKipData() {
+    this->clockMgr->GetKipData();
+    
+    return 0;
+}
+
+Result IpcService::UpdateEmcRegs() {
+    this->clockMgr->UpdateRamTimings();
+
+    return 0;
+}
+
+Result IpcService::CalculateGPUVmin() {
+    this->clockMgr->calculateGpuVmin();
     return 0;
 }

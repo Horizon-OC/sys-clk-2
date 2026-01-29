@@ -1,5 +1,21 @@
 /*
- * --------------------------------------------------------------------------
+ * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
+
+/* --------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
  * wrote this file. As long as you retain this notice you can do whatever you
@@ -11,56 +27,145 @@
 #include "base_gui.h"
 
 #include "../elements/base_frame.h"
-#include "logo_rgba_bin.h"
 
+#include <tesla.hpp>
+#include <math.h>
 
-#define LOGO_WIDTH 110
-#define LOGO_HEIGHT 39
-#define LOGO_X 18
-#define LOGO_Y 21
+#define LOGO_X 20
+#define LOGO_Y 50
+#define LOGO_LABEL_FONT_SIZE 45
 
-#define LOGO_LABEL_X (LOGO_X + LOGO_WIDTH + 6)
-#define LOGO_LABEL_Y 50
-#define LOGO_LABEL_FONT_SIZE 28
-
-#define VERSION_X (LOGO_LABEL_X + 110+8)
-#define VERSION_Y LOGO_LABEL_Y-4
+#define VERSION_X (LOGO_X + 250)
+#define VERSION_Y (LOGO_Y - 40)
 #define VERSION_FONT_SIZE 15
 
 std::string getVersionString() {
-    char buf[0x100] = "";  // 256 bytes — safe for any expected version string
+    char buf[0x100] = "";
     Result rc = sysclkIpcGetVersionString(buf, sizeof(buf));
     if (R_FAILED(rc) || buf[0] == '\0') {
-        return "unknown";
+        return "Unknown";
     }
     return std::string(buf);
 }
 
+// ---------------------------------------------
+// AQUATIC BLUE COLORS (4-bit color space)
+// ---------------------------------------------
+static constexpr tsl::Color dynamicLogoRGB1 = tsl::Color(0, 4, 8, 15);   // Deep ocean blue
+static constexpr tsl::Color dynamicLogoRGB2 = tsl::Color(7, 15, 15, 15); // Bright aqua cyan
+static constexpr tsl::Color STATIC_AQUA     = tsl::Color(2, 10, 12, 15); // Mid aqua
 
-bool usingEOS() {
-    const std::string versionString = getVersionString();
+// ---------------------------------------------
+// FULLY ENHANCED ANIMATED LOGO EFFECT
+// ---------------------------------------------
+static s32 drawDynamicUltraText(
+    tsl::gfx::Renderer* renderer,
+    s32 startX,
+    s32 y,
+    u32 fontSize,
+    const tsl::Color& staticColor,
+    bool useNotificationMethod = false)
+{
+    static constexpr double cycleDuration = 1.6;
 
-    return versionString.find("eos") != std::string::npos;
+    const std::string name = "Horizon OC Zeus";
+    s32 currentX = startX;
+
+    const u64 currentTime_ns = armTicksToNs(armGetSystemTick());
+    const double timeNow = static_cast<double>(currentTime_ns) / 1e9;
+    const double timeBase = fmod(timeNow, cycleDuration);
+
+    const double waveScale = 2.0 * M_PI / cycleDuration;
+
+    for (size_t i = 0; i < name.size(); i++)
+    {
+        char letter = name[i];
+        if (letter == '\0') break;
+
+        double phase = waveScale * (timeBase + i * 0.12);
+
+        double raw = cos(phase);
+        double n = (raw + 1.0) * 0.5;
+        double s1 = n * n * (3.0 - 2.0 * n);
+        double blend = std::clamp(s1, 0.0, 1.0);
+
+        // ---------------------------------------------
+        // Glow Pulse (brightness modulation)
+        // ---------------------------------------------
+        double glow = (cos(phase * 1.5) + 1.0) * 0.5;
+        double brightness = 0.75 + glow * 0.25;
+
+        // ---------------------------------------------
+        // Color interpolation (4-bit!)
+        // ---------------------------------------------
+        u8 r = static_cast<u8>(
+            (dynamicLogoRGB1.r + (dynamicLogoRGB2.r - dynamicLogoRGB1.r) * blend) * brightness
+        );
+        u8 g = static_cast<u8>(
+            (dynamicLogoRGB1.g + (dynamicLogoRGB2.g - dynamicLogoRGB1.g) * blend) * brightness
+        );
+        u8 b = static_cast<u8>(
+            (dynamicLogoRGB1.b + (dynamicLogoRGB2.b - dynamicLogoRGB1.b) * blend) * brightness
+        );
+
+        r = std::clamp<u8>(r, 0, 15);
+        g = std::clamp<u8>(g, 0, 15);
+        b = std::clamp<u8>(b, 0, 15);
+
+        // ---------------------------------------------
+        // ZEUS Lightning Flash
+        // ---------------------------------------------
+        bool lightning = (fmod(timeNow, 5.0) < 0.15);
+        if (lightning) {
+            r = std::min<u8>(r + 4, 15);
+            g = std::min<u8>(g + 4, 15);
+            b = std::min<u8>(b + 15, 15); // strong blue spike
+        }
+
+        tsl::Color color(r, g, b, 15);
+
+        // ---------------------------------------------
+        // Static Position (no vertical wobble)
+        // ---------------------------------------------
+        std::string ls(1, letter);
+
+        if (useNotificationMethod)
+            currentX += renderer->drawNotificationString(ls, false, currentX, y, fontSize, color).first;
+        else
+            currentX += renderer->drawString(ls, false, currentX, y, fontSize, color).first;
+    }
+
+    return currentX;
 }
 
+// ---------------------------------------------
+// PRE-DRAW HOOK
+// ---------------------------------------------
 void BaseGui::preDraw(tsl::gfx::Renderer* renderer)
 {
-    renderer->drawBitmap(LOGO_X, LOGO_Y, LOGO_WIDTH, LOGO_HEIGHT, logo_rgba_bin);
-    renderer->drawString("overlay", false, LOGO_LABEL_X, LOGO_LABEL_Y, LOGO_LABEL_FONT_SIZE, renderer->a(TEXT_COLOR));
-    renderer->drawString(TARGET_VERSION, false, VERSION_X, VERSION_Y, VERSION_FONT_SIZE, tsl::bannerVersionTextColor);
-    if (isUsingEOS) {
-        renderer->drawString("EOS mode", false, VERSION_X+86, VERSION_Y, VERSION_FONT_SIZE, tsl::warningTextColor);
-    }
+    drawDynamicUltraText(
+        renderer,
+        LOGO_X,
+        LOGO_Y,
+        LOGO_LABEL_FONT_SIZE,
+        STATIC_AQUA,
+        false
+    );
 }
 
+// ---------------------------------------------
+// UI SETUP
+// ---------------------------------------------
 tsl::elm::Element* BaseGui::createUI()
 {
-    isUsingEOS = usingEOS();
     BaseFrame* rootFrame = new BaseFrame(this);
     rootFrame->setContent(this->baseUI());
     return rootFrame;
 }
 
+// ---------------------------------------------
+// LIVE UPDATE
+// ---------------------------------------------
 void BaseGui::update()
 {
     this->refresh();

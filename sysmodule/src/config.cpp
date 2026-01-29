@@ -1,5 +1,21 @@
 /*
- * --------------------------------------------------------------------------
+ * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
+ 
+/* --------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
  * wrote this file. As long as you retain this notice you can do whatever you
@@ -7,6 +23,7 @@
  * stuff is worth it, you can buy us a beer in return.  - The sys-clk authors
  * --------------------------------------------------------------------------
  */
+
 
 #include "config.h"
 #include <sys/types.h>
@@ -121,7 +138,7 @@ std::uint32_t Config::FindClockMHz(std::uint64_t tid, SysClkModule module, SysCl
     return 0;
 }
 
-std::uint32_t Config::FindClockHzFromProfiles(std::uint64_t tid, SysClkModule module, std::initializer_list<SysClkProfile> profiles)
+std::uint32_t Config::FindClockHzFromProfiles(std::uint64_t tid, SysClkModule module, std::initializer_list<SysClkProfile> profiles, u32 mhzMultiplier)
 {
     std::uint32_t mhz = 0;
 
@@ -138,23 +155,23 @@ std::uint32_t Config::FindClockHzFromProfiles(std::uint64_t tid, SysClkModule mo
         }
     }
 
-    return std::max((std::uint32_t)0, mhz * 1000000);
+    return std::max((std::uint32_t)0, mhz * mhzMultiplier);
 }
 
-std::uint32_t Config::GetAutoClockHz(std::uint64_t tid, SysClkModule module, SysClkProfile profile)
+std::uint32_t Config::GetAutoClockHz(std::uint64_t tid, SysClkModule module, SysClkProfile profile, bool returnRaw)
 {
     std::scoped_lock lock{this->configMutex};
     switch(profile)
     {
         case SysClkProfile_Handheld:
-            return FindClockHzFromProfiles(tid, module, {SysClkProfile_Handheld});
+            return FindClockHzFromProfiles(tid, module, {SysClkProfile_Handheld}, returnRaw ? 1 : 1000000);
         case SysClkProfile_HandheldCharging:
         case SysClkProfile_HandheldChargingUSB:
-            return FindClockHzFromProfiles(tid, module, {SysClkProfile_HandheldChargingUSB, SysClkProfile_HandheldCharging, SysClkProfile_Handheld});
+            return FindClockHzFromProfiles(tid, module, {SysClkProfile_HandheldChargingUSB, SysClkProfile_HandheldCharging, SysClkProfile_Handheld}, returnRaw ? 1 : 1000000);
         case SysClkProfile_HandheldChargingOfficial:
-            return FindClockHzFromProfiles(tid, module, {SysClkProfile_HandheldChargingOfficial, SysClkProfile_HandheldCharging, SysClkProfile_Handheld});
+            return FindClockHzFromProfiles(tid, module, {SysClkProfile_HandheldChargingOfficial, SysClkProfile_HandheldCharging, SysClkProfile_Handheld}, returnRaw ? 1 : 1000000);
         case SysClkProfile_Docked:
-            return FindClockHzFromProfiles(tid, module, {SysClkProfile_Docked});
+            return FindClockHzFromProfiles(tid, module, {SysClkProfile_Docked}, returnRaw ? 1 : 1000000);
         default:
             ERROR_THROW("Unhandled SysClkProfile: %u", profile);
     }
@@ -180,23 +197,15 @@ bool Config::SetProfiles(std::uint64_t tid, SysClkTitleProfileList* profiles, bo
     std::scoped_lock lock{this->configMutex};
     uint8_t numProfiles = 0;
 
-    // String pointer array passed to ini
-    char* iniKeys[SysClkProfile_EnumMax * SysClkModule_EnumMax + 1];
-    char* iniValues[SysClkProfile_EnumMax * SysClkModule_EnumMax + 1];
-
-    // Char arrays to build strings
-    char keysStr[SysClkProfile_EnumMax * SysClkModule_EnumMax * 0x40];
-    char valuesStr[SysClkProfile_EnumMax * SysClkModule_EnumMax * 0x10];
     char section[17] = {0};
-
-    // Iteration pointers
-    char** ik = &iniKeys[0];
-    char** iv = &iniValues[0];
-    char* sk = &keysStr[0];
-    char* sv = &valuesStr[0];
-    std::uint32_t* mhz = &profiles->mhz[0];
-
     snprintf(section, sizeof(section), "%016lX", tid);
+
+    std::vector<std::string> keys;
+    std::vector<std::string> values;
+    keys.reserve(SysClkProfile_EnumMax * SysClkModule_EnumMax);
+    values.reserve(SysClkProfile_EnumMax * SysClkModule_EnumMax);
+
+    std::uint32_t* mhz = &profiles->mhz[0];
 
     for(unsigned int profile = 0; profile < SysClkProfile_EnumMax; profile++)
     {
@@ -206,34 +215,35 @@ bool Config::SetProfiles(std::uint64_t tid, SysClkTitleProfileList* profiles, bo
             {
                 numProfiles++;
 
-                // Put key and value as string
-                snprintf(sk, 0x40, "%s_%s", Board::GetProfileName((SysClkProfile)profile, false), Board::GetModuleName((SysClkModule)module, false));
-                snprintf(sv, 0x10, "%d", *mhz);
+                std::string key = std::string(Board::GetProfileName((SysClkProfile)profile, false)) + 
+                                  "_" + 
+                                  Board::GetModuleName((SysClkModule)module, false);
+                std::string value = std::to_string(*mhz);
 
-                // Add them to the ini key/value str arrays
-                *ik = sk;
-                *iv = sv;
-                ik++;
-                iv++;
-
-                // We used those chars, get to the next ones
-                sk += 0x40;
-                sv += 0x10;
+                keys.push_back(key);
+                values.push_back(value);
             }
-
             mhz++;
         }
     }
 
-    *ik = NULL;
-    *iv = NULL;
+    std::vector<const char*> keyPointers;
+    std::vector<const char*> valuePointers;
+    keyPointers.reserve(keys.size() + 1);
+    valuePointers.reserve(values.size() + 1);
 
-    if(!ini_putsection(section, (const char**)iniKeys, (const char**)iniValues, this->path.c_str()))
+    for(size_t i = 0; i < keys.size(); i++) {
+        keyPointers.push_back(keys[i].c_str());
+        valuePointers.push_back(values[i].c_str());
+    }
+    keyPointers.push_back(NULL);
+    valuePointers.push_back(NULL);
+
+    if(!ini_putsection(section, keyPointers.data(), valuePointers.data(), this->path.c_str()))
     {
         return false;
     }
 
-    // Only actually apply changes in memory after a succesful save
     if(immediate)
     {
         mhz = &profiles->mhz[0];
@@ -414,46 +424,41 @@ bool Config::SetConfigValues(SysClkConfigValueList* configValues, bool immediate
 {
     std::scoped_lock lock{this->configMutex};
 
-    // String pointer array passed to ini
-    const char* iniKeys[SysClkConfigValue_EnumMax + 1];
-    char* iniValues[SysClkConfigValue_EnumMax + 1];
-
-    // char arrays to build strings
-    char valuesStr[SysClkConfigValue_EnumMax * 0x20];
-
-    // Iteration pointers
-    char* sv = &valuesStr[0];
-    const char** ik = &iniKeys[0];
-    char** iv = &iniValues[0];
+    std::vector<const char*> iniKeys;
+    std::vector<std::string> iniValues;
+    
+    iniKeys.reserve(SysClkConfigValue_EnumMax + 1);
+    iniValues.reserve(SysClkConfigValue_EnumMax);
 
     for(unsigned int kval = 0; kval < SysClkConfigValue_EnumMax; kval++)
     {
-        if(!sysclkValidConfigValue((SysClkConfigValue)kval, configValues->values[kval]) || configValues->values[kval] == sysclkDefaultConfigValue((SysClkConfigValue)kval))
+        if(!sysclkValidConfigValue((SysClkConfigValue)kval, configValues->values[kval]) || 
+           configValues->values[kval] == sysclkDefaultConfigValue((SysClkConfigValue)kval))
         {
             continue;
         }
 
-        // Put key and value as string
-        // And add them to the ini key/value str arrays
-        snprintf(sv, 0x20, "%ld", configValues->values[kval]);
-        *ik = sysclkFormatConfigValue((SysClkConfigValue)kval, false);
-        *iv = sv;
-
-        // We used those chars, get to the next ones
-        sv += 0x20;
-        ik++;
-        iv++;
+        iniValues.push_back(std::to_string(configValues->values[kval]));
+        iniKeys.push_back(sysclkFormatConfigValue((SysClkConfigValue)kval, false));
     }
 
-    *ik = NULL;
-    *iv = NULL;
+    // Null terminate
+    iniKeys.push_back(NULL);
 
-    if(!ini_putsection(CONFIG_VAL_SECTION, (const char**)iniKeys, (const char**)iniValues, this->path.c_str()))
+    // Build pointer array for ini function
+    std::vector<const char*> valuePointers;
+    valuePointers.reserve(iniValues.size() + 1);
+    for(const auto& val : iniValues) {
+        valuePointers.push_back(val.c_str());
+    }
+    valuePointers.push_back(NULL);
+
+    if(!ini_putsection(CONFIG_VAL_SECTION, iniKeys.data(), valuePointers.data(), this->path.c_str()))
     {
         return false;
     }
 
-    // Only actually apply changes in memory after a succesful save
+    // Only actually apply changes in memory after a successful save
     if(immediate)
     {
         for(unsigned int kval = 0; kval < SysClkConfigValue_EnumMax; kval++)
@@ -469,5 +474,47 @@ bool Config::SetConfigValues(SysClkConfigValueList* configValues, bool immediate
         }
     }
 
+    return true;
+}
+
+bool Config::ResetConfigValue(SysClkConfigValue kval)
+{
+    if (!SYSCLK_ENUM_VALID(SysClkConfigValue, kval)) {
+        FileUtils::LogLine("[cfg] Invalid SysClkConfigValue: %u", kval);
+        return false;
+    }
+
+    std::scoped_lock lock{this->configMutex};
+
+    std::uint64_t defaultValue = sysclkDefaultConfigValue(kval);
+
+    std::vector<const char*> iniKeys;
+    std::vector<std::string> iniValues;
+    
+    iniKeys.reserve(2);
+    iniValues.reserve(1);
+
+    const char* keyStr = sysclkFormatConfigValue(kval, false);
+    
+    iniKeys.push_back(keyStr);
+    iniValues.push_back("");
+
+    iniKeys.push_back(NULL);
+
+    std::vector<const char*> valuePointers;
+    valuePointers.reserve(iniValues.size() + 1);
+    for (const auto& val : iniValues) {
+        valuePointers.push_back(val.c_str());
+    }
+    valuePointers.push_back(NULL);
+
+    if (!ini_putsection(CONFIG_VAL_SECTION, iniKeys.data(), valuePointers.data(), this->path.c_str())) {
+        FileUtils::LogLine("[cfg] Failed to reset config value %u in INI", kval);
+        return false;
+    }
+
+    this->configValues[kval] = defaultValue;
+    FileUtils::LogLine("[cfg] Reset config value %u to default: %llu", kval, defaultValue);
+    
     return true;
 }

@@ -1,5 +1,21 @@
 /*
- * --------------------------------------------------------------------------
+ * Copyright (c) Souldbminer, Lightos_ and Horizon OC Contributors
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
+ 
+/* --------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
  * <p-sam@d3vs.net>, <natinusala@gmail.com>, <m4x@m4xw.net>
  * wrote this file. As long as you retain this notice you can do whatever you
@@ -20,7 +36,6 @@
 #include "process_management.h"
 #include "clock_manager.h"
 #include "ipc_service.h"
-
 #define INNER_HEAP_SIZE 0x30000
 
 extern "C"
@@ -30,9 +45,11 @@ extern "C"
     std::uint32_t __nx_applet_type = AppletType_None;
     TimeServiceType __nx_time_service_type = TimeServiceType_System;
     std::uint32_t __nx_fs_num_sessions = 1;
-
+    u32 __nx_nv_transfermem_size = 0x8000;
     size_t nx_inner_heap_size = INNER_HEAP_SIZE;
     char nx_inner_heap[INNER_HEAP_SIZE];
+    NvServiceType __nx_nv_service_type = NvServiceType_Factory;
+
 
     void __libnx_initheap(void)
     {
@@ -63,12 +80,24 @@ extern "C"
                 hosversionSet(MAKEHOSVERSION(fw.major, fw.minor, fw.micro));
             setsysExit();
         }
+        
+        // rc = fanInitialize();
+        // if (R_FAILED(rc))
+        //     diagAbortWithResult(MAKERESULT(Module_Libnx, LibnxError_ShouldNotHappen));
+    
+        rc = i2cInitialize();
+        if (R_FAILED(rc))
+            diagAbortWithResult(MAKERESULT(Module_Libnx, LibnxError_ShouldNotHappen));
     }
 
     void __appExit(void)
     {
-        smExit();
-    }
+        // CloseFanControllerThread();
+        // fanExit();
+        i2cExit();
+        fsExit();
+        fsdevUnmountAll();    
+        }
 }
 
 int main(int argc, char** argv)
@@ -95,6 +124,10 @@ int main(int argc, char** argv)
         clockMgr->SetRunning(true);
         clockMgr->GetConfig()->SetEnabled(true);
         ipcSrv->SetRunning(true);
+        // TemperaturePoint *table;
+        // ReadConfigFile(&table);
+        // InitFanController(table);
+        // StartFanControllerThread();
 
         while (clockMgr->Running())
         {
@@ -121,5 +154,6 @@ int main(int argc, char** argv)
     FileUtils::LogLine("Exit");
     svcSleepThread(1000000ULL);
     FileUtils::Exit();
+    
     return 0;
 }
