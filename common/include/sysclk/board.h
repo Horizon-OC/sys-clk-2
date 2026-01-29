@@ -75,8 +75,6 @@ typedef enum
     SysClkModule_CPU = 0,
     SysClkModule_GPU,
     SysClkModule_MEM,
-    HorizonOCModule_Governor,
-    HorizonOCModule_Display,
     SysClkModule_EnumMax,
 } SysClkModule;
 
@@ -137,10 +135,6 @@ static inline const char* sysclkFormatModule(SysClkModule module, bool pretty)
             return pretty ? "GPU" : "gpu";
         case SysClkModule_MEM:
             return pretty ? "Memory" : "mem";
-        case HorizonOCModule_Display:
-            return pretty ? "Display" : "display";
-        case HorizonOCModule_Governor:
-            return pretty ? "Governor" : "gov";
         default:
             return "null";
     }

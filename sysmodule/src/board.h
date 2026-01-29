@@ -46,8 +46,6 @@ class Board
     static void ResetToStockCpu();
     static void ResetToStockMem();
     static void ResetToStockGpu();
-    static void ResetToStockDisplay();
-    static u8 GetHighestDockedDisplayRate();
     static SysClkProfile GetProfile();
     static void SetHz(SysClkModule module, std::uint32_t hz);
     static std::uint32_t GetHz(SysClkModule module);
@@ -61,7 +59,6 @@ class Board
     static std::uint32_t GetVoltage(HocClkVoltage voltage);
     static u8 GetFanRotationLevel();
     static u8 GetDramID();
-    static void UpdateShadowRegs(u32 tRCD_i, u32 tRP_i, u32 tRAS_i, u32 tRRD_i, u32 tRFC_i, u32 tRTW_i, u32 tWTR_i, u32 tREFpb_i, u32 ramFreq, u32 rlAdd, u32 wlAdd, bool hpMode);
     static bool IsDram8GB();
   protected:
     static void FetchHardwareInfos();

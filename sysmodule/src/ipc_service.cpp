@@ -204,21 +204,6 @@ Result IpcService::ServiceHandlerFunc(void* arg, const IpcServerRequest* r, u8* 
                 return ipcSrv->SetReverseNXRTMode(mode);
             }
             break;
-        case HocClkIpcCmd_SetKipData:
-            if (r->data.size >= 0) {
-                return ipcSrv->SetKipData();
-            }
-            break;
-        case HocClkIpcCmd_UpdateEmcRegs:
-            if (r->data.size >= 0) {
-                return ipcSrv->UpdateEmcRegs();
-            }
-            break;
-        case HocClkIpcCmd_CalculateGpuVmin:
-            if (r->data.size >= 0) {
-                return ipcSrv->CalculateGPUVmin();
-            }
-            break;
     }
 
     return SYSCLK_ERROR(Generic);
@@ -372,28 +357,5 @@ Result IpcService::GetFreqList(SysClkIpc_GetFreqList_Args* args, std::uint32_t* 
 }
 
 Result IpcService::SetReverseNXRTMode(ReverseNXMode mode) {
-    return 0;
-}
-
-Result IpcService::SetKipData() {
-    this->clockMgr->SetKipData();
-    
-    return 0;
-}
-
-Result IpcService::GetKipData() {
-    this->clockMgr->GetKipData();
-    
-    return 0;
-}
-
-Result IpcService::UpdateEmcRegs() {
-    this->clockMgr->UpdateRamTimings();
-
-    return 0;
-}
-
-Result IpcService::CalculateGPUVmin() {
-    this->clockMgr->calculateGpuVmin();
     return 0;
 }

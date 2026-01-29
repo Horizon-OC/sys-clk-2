@@ -60,17 +60,10 @@ class ClockManager
     void ResetToStockClocks();
     void WaitForNextTick();
     void SetRNXRTMode(ReverseNXMode mode);
-    void SetKipData();
-    void GetKipData();
-    static void GovernorThread(void* arg);
-    void UpdateRamTimings();
     struct {
       std::uint32_t count;
       std::uint32_t list[SYSCLK_FREQ_LIST_MAX];
     } freqTable[SysClkModule_EnumMax];
-    int GetSpeedoBracket (int speedo);
-    unsigned int GetGpuVoltage (unsigned int freq, int speedo);
-    void calculateGpuVmin(void);
   protected:
     bool IsAssignableHz(SysClkModule module, std::uint32_t hz);
     inline std::uint32_t GetMaxAllowedHz(SysClkModule module, SysClkProfile profile);

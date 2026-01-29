@@ -49,10 +49,6 @@ Result sysclkIpcGetConfigValues(SysClkConfigValueList* out_configValues);
 Result sysclkIpcSetConfigValues(SysClkConfigValueList* configValues);
 Result sysclkIpcGetFreqList(SysClkModule module, u32* list, u32 maxCount, u32* outCount);
 Result sysclkIpcSetReverseNXRTMode(ReverseNXMode mode);
-Result hocClkIpcSetKipData();
-Result hocClkIpcGetKipData();
-Result hocClkIpcUpdateEmcRegs();
-Result hocClkIpcCalculateGpuVmin();
 
 static inline Result sysclkIpcRemoveOverride(SysClkModule module)
 {
