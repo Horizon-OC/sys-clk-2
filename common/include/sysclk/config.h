@@ -90,10 +90,6 @@ static inline uint64_t sysclkDefaultConfigValue(SysClkConfigValue val)
     {
         case SysClkConfigValue_PollingIntervalMs:
             return 300ULL;
-        case SysClkConfigValue_TempLogIntervalMs:
-        case SysClkConfigValue_FreqLogIntervalMs:
-        case SysClkConfigValue_PowerLogIntervalMs:
-        case SysClkConfigValue_CsvWriteIntervalMs:
         case SysClkConfigValue_ThermalThrottle:
         case SysClkConfigValue_HandheldTDP:
         case SysClkConfigValue_EnforceBoardLimit:
