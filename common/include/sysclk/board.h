@@ -23,14 +23,14 @@ typedef enum
 
 typedef enum
 {
-    HorizonOCConsoleType_Icosa = 0,
-    HorizonOCConsoleType_Copper,
-    HorizonOCConsoleType_Hoag,
-    HorizonOCConsoleType_Iowa,
-    HorizonOCConsoleType_Calcio,
-    HorizonOCConsoleType_Aula,
-    HorizonOCConsoleType_EnumMax,
-} HorizonOCConsoleType;
+    SysClkConsoleType_Icosa = 0,
+    SysClkConsoleType_Copper,
+    SysClkConsoleType_Hoag,
+    SysClkConsoleType_Iowa,
+    SysClkConsoleType_Calcio,
+    SysClkConsoleType_Aula,
+    SysClkConsoleType_EnumMax,
+} SysClkConsoleType;
 
 typedef enum {
     SysClkVoltage_SOC = 0,
@@ -66,8 +66,8 @@ typedef enum
     SysClkThermalSensor_SOC = 0,
     SysClkThermalSensor_PCB,
     SysClkThermalSensor_Skin,
-    HorizonOCThermalSensor_Battery,
-    HorizonOCThermalSensor_PMIC,
+    SysClkThermalSensor_Battery,
+    SysClkThermalSensor_PMIC,
     SysClkThermalSensor_EnumMax
 } SysClkThermalSensor;
 
@@ -83,7 +83,7 @@ typedef enum
     SysClkPartLoad_EMC = 0,
     SysClkPartLoad_EMCCpu,
     SysClkPartLoad_GPU,
-    SysClkPartLoad_CPUAvg,
+    SysClkPartLoad_CPUMax,
     SysClkPartLoad_BAT,
     SysClkPartLoad_FAN,
     SysClkPartLoad_EnumMax
@@ -100,11 +100,18 @@ typedef enum
 
 
 typedef enum {
-    HorizonOCSpeedo_CPU = 0,
-    HorizonOCSpeedo_GPU,
-    HorizonOCSpeedo_SOC,
-    HorizonOCSpeedo_EnumMax,
-} HorizonOCSpeedo;
+    SysClkSpeedo_CPU = 0,
+    SysClkSpeedo_GPU,
+    SysClkSpeedo_SOC,
+    SysClkSpeedo_EnumMax,
+} SysClkSpeedo;
+
+typedef enum {
+    GpuSchedulingMode_DoNotOverride = 0,
+    GpuSchedulingMode_Enabled,
+    GpuSchedulingMode_Disabled,
+    GpuSchedulingMode_EnumMax,
+} GpuSchedulingMode;
 
 #define SYSCLK_ENUM_VALID(n, v) ((v) < n##_EnumMax)
 
@@ -133,9 +140,9 @@ static inline const char* sysclkFormatThermalSensor(SysClkThermalSensor thermSen
             return pretty ? "PCB" : "pcb";
         case SysClkThermalSensor_Skin:
             return pretty ? "Skin" : "skin";
-        case HorizonOCThermalSensor_Battery:
+        case SysClkThermalSensor_Battery:
             return pretty ? "BAT" : "battery";
-        case HorizonOCThermalSensor_PMIC:
+        case SysClkThermalSensor_PMIC:
             return pretty ? "PMIC" : "pmic";
 
         default:

@@ -30,10 +30,11 @@ typedef enum {
 
     SysClkConfigValue_LiteTDPLimit,
 
-    SysClkConfigValue_EnforceBoardLimit,
-
-    SysClkConfigValue_FixCpuVoltBug,
-
+    SysClkConfigValue_EristaCpuUv,
+    SysClkConfigValue_EristaGpuUv,
+    SysClkConfigValue_MarikoCpuUvLow,
+    SysClkConfigValue_MarikoCpuUvHigh,
+    SysClkConfigValue_MarikoGpuUv,
     SysClkConfigValue_EnumMax,
 } SysClkConfigValue;
 
@@ -74,11 +75,16 @@ static inline const char* sysclkFormatConfigValue(SysClkConfigValue val, bool pr
         case SysClkConfigValue_LiteTDPLimit:
             return pretty ? "Handheld TDP Limit" : "tdp_limit_l";
 
-        case SysClkConfigValue_EnforceBoardLimit:
-            return pretty ? "Enforce Board Limit" : "enforce_board_limit";
-
-        case SysClkConfigValue_FixCpuVoltBug:
-            return pretty ? "Fix CPU Volt Bug" : "cpu_volt_bugfix";
+        case SysClkConfigValue_EristaCpuUv:
+            return pretty ? "CPU Undervolt Level" : "e_cpu_uv";
+        case SysClkConfigValue_MarikoCpuUvLow:
+            return pretty ? "CPU Low Undervolt Level" : "m_cpu_uv_low";
+        case SysClkConfigValue_MarikoCpuUvHigh:
+            return pretty ? "CPU High Undervolt Level" : "m_cpu_uv_High";
+        case SysClkConfigValue_EristaGpuUv:
+            return pretty ? "GPU Undervolt Level" : "m_gpu_uv";
+        case SysClkConfigValue_MarikoGpuUv:
+            return pretty ? "GPU Undervolt Level" : "m_gpu_uv";
         default:
             return pretty ? "[cfg] no enum format string" : "err_no_format_string";
     }
@@ -92,16 +98,19 @@ static inline uint64_t sysclkDefaultConfigValue(SysClkConfigValue val)
             return 300ULL;
         case SysClkConfigValue_ThermalThrottle:
         case SysClkConfigValue_HandheldTDP:
-        case SysClkConfigValue_EnforceBoardLimit:
-        case SysClkConfigValue_FixCpuVoltBug:
             return 1ULL;
         case SysClkConfigValue_OverwriteBoostMode:
+        case SysClkConfigValue_MarikoCpuUvLow:
+        case SysClkConfigValue_MarikoCpuUvHigh:
+        case SysClkConfigValue_MarikoGpuUv:
+        case SysClkConfigValue_EristaCpuUv:
+        case SysClkConfigValue_EristaGpuUv:
             return 0ULL;
 
         case SysClkConfigValue_ThermalThrottleThreshold:
             return 70ULL;
         case SysClkConfigValue_HandheldTDPLimit:
-            return 8600ULL;
+            return 9600ULL;
         case SysClkConfigValue_LiteTDPLimit:
             return 6400ULL;
         default:
@@ -126,10 +135,8 @@ static inline uint64_t sysclkValidConfigValue(SysClkConfigValue val, uint64_t in
         case SysClkConfigValue_OverwriteBoostMode:
         case SysClkConfigValue_ThermalThrottle:
         case SysClkConfigValue_HandheldTDP:
-        case SysClkConfigValue_EnforceBoardLimit:
-        case SysClkConfigValue_FixCpuVoltBug:
             return (input & 0x1) == input;
-                default:
-            return false;
+        default:
+            return true;
     }
 }

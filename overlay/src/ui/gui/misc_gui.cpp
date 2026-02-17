@@ -229,8 +229,63 @@ void MiscGui::listUI()
     addConfigToggle(SysClkConfigValue_OverwriteBoostMode, nullptr);
     addConfigToggle(SysClkConfigValue_ThermalThrottle, nullptr);
     addConfigToggle(SysClkConfigValue_HandheldTDP, nullptr);
-    addConfigToggle(SysClkConfigValue_EnforceBoardLimit, nullptr);
 
+    std::vector<NamedValue> gpuUvConf = {
+        NamedValue("No Undervolt", 0),
+        NamedValue("SLT Table", 1),
+        NamedValue("HiOPT Table", 2),
+    };
+
+    if(IsMariko()) {
+        addConfigButton(
+            SysClkConfigValue_MarikoCpuUvLow,
+            "CPU LF Undervolt",
+            ValueRange(0, 8, 1, "", 1),
+            "Undervolt",
+            &thresholdsDisabled,
+            {},
+            {},
+            false
+        );
+        addConfigButton(
+            SysClkConfigValue_MarikoCpuUvHigh,
+            "CPU HF Undervolt",
+            ValueRange(0, 12, 1, "", 1),
+            "Undervolt",
+            &thresholdsDisabled, 
+            {},
+            {},
+            false
+        );
+        addConfigButton(
+            SysClkConfigValue_MarikoGpuUv,
+            "GPU Undervolt Table",
+            ValueRange(0, 1, 1, "", 1),
+            "GPU Undervolt Table",
+            &thresholdsDisabled,
+            {},
+            gpuUvConf,
+            false
+        );
+    } else {
+        addConfigButton(
+            SysClkConfigValue_EristaCpuUv,
+            "CPU Undervolt",
+            ValueRange(0, 5, 1, "", 1),
+            "Undervolt",
+            &thresholdsDisabled
+        );
+        addConfigButton(
+            SysClkConfigValue_EristaGpuUv,
+            "GPU Undervolt Table",
+            ValueRange(0, 1, 1, "", 1),
+            "GPU Undervolt Table",
+            &thresholdsDisabled,
+            {},
+            gpuUvConf,
+            false
+        );
+    }
 }
 
 

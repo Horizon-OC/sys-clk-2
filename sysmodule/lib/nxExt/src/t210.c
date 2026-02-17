@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2020-2023 CTCaer
  * Copyright (c) 2023 p-sam
+ * Copyright (c) 2026 Souldbminer
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -47,7 +48,7 @@
 
 #define PTO_CLK_CNT_BUSY         BIT(31)
 #define PTO_CLK_CNT              0xFFFFFF
-#define CLK_PTO_CCLK_G           0x12
+#define CLK_PTO_CCLK_G_DIV2      0x13
 #define CLK_PTO_EMC              0x24
 
 #define CLOCK(x) (*(volatile u32 *)(g_clk_base + (x)))
@@ -117,7 +118,7 @@ static u32 g_mem_freq = 0;
 static u32 g_emc_lall = 0;
 static u32 g_emc_lcpu = 0;
 
-static u32 _clock_get_dev_freq(u32 id)
+static u32 _clock_get_dev_freq(u32 id, u32 multiplier)
 {
     const u32 pto_win = 16;
     const u32 pto_osc = 32768;
@@ -148,7 +149,7 @@ static u32 _clock_get_dev_freq(u32 id)
     (void)CLOCK(CLK_RST_CONTROLLER_PTO_CLK_CNT_CNTL);
     usleep(2);
 
-    u32 freq_khz = (u64)cnt * pto_osc / pto_win / 1000;
+    u32 freq_khz = (u64)cnt * multiplier * pto_osc / pto_win;
 
     return freq_khz;
 }
@@ -203,8 +204,8 @@ static void _clock_update_freqs(void)
         return;
     }
 
-    g_mem_freq = _clock_get_dev_freq(CLK_PTO_EMC) * 1000;
-    g_cpu_freq = _clock_get_dev_freq(CLK_PTO_CCLK_G) * 1000;
+    g_mem_freq = _clock_get_dev_freq(CLK_PTO_EMC, 1);
+    g_cpu_freq = _clock_get_dev_freq(CLK_PTO_CCLK_G_DIV2, 2);
 
     if (!g_gpu_base)
     {

@@ -45,7 +45,7 @@ static s32 drawDynamicUltraText(
 {
     static constexpr double cycleDuration = 5.0f;
 
-    const std::string name = "sys-clk";
+    const std::string name = "sys-clk-pro";
     s32 currentX = startX;
 
     const u64 currentTime_ns = armTicksToNs(armGetSystemTick());

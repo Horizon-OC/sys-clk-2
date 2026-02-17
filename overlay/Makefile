@@ -26,7 +26,7 @@ DATA		:=	data
 INCLUDES	:=	../common/include
 EXEFS_SRC	:=	exefs_src
 
-APP_TITLE	:=	sys-clk-2
+APP_TITLE	:=	sys-clk-pro
 NO_ICON		:=	1
 
 
@@ -38,7 +38,7 @@ include ${TOPDIR}/lib/libultrahand/ultrahand.mk
 # version control constants
 #---------------------------------------------------------------------------------
 #TARGET_VERSION	:= $(shell git describe --dirty --always --tags)
-APP_VERSION		:= 2.0.0
+APP_VERSION		:= 3.0.0
 TARGET_VERSION := $(APP_VERSION)
 
 #---------------------------------------------------------------------------------

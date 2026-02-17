@@ -1,9 +1,22 @@
-# sys-clk
+# sys-clk-pro
 
 Switch sysmodule allowing you to set cpu/gpu/mem clocks according to the running application and docked state.
 
 Support is only provided for FW 16.0.0+. This MAY work on older firmwares but support is NOT guaranteed
 
+features over stock sys-clk
+- built with libultrahand
+- voltage readings via rgltr
+- reading of battery temparature
+- reading of FAN speed
+- settings menu for new settings
+- extra safety features
+- cool logo
+- CPU/GPU load driver
+- speedo/iddq reading
+- mitigate pcv cldvfs bug
+- slight powersave in sleep mode
+- Undervolting
 
 ## Clock table (MHz)
 

@@ -21,6 +21,8 @@
 #include <pwm.h>
 #include <stdio.h>
 #include <cstring>
+#include <registers.h>
+#include <memmem.h>
 
 #define MAX(A, B)   std::max(A, B)
 #define MIN(A, B)   std::min(A, B)
@@ -44,12 +46,16 @@
 #define HOSSVC_HAS_CLKRST (hosversionAtLeast(8,0,0))
 #define HOSSVC_HAS_TC (hosversionAtLeast(5,0,0))
 #define NVGPU_GPU_IOCTL_PMU_GET_GPU_LOAD 0x80044715
+#define NVSCHED_CTRL_ENABLE 0x00000601
+#define NVSCHED_CTRL_DISABLE 0x00000602
 
-#define systemtickfrequency 19200000
-#define systemtickfrequencyF 19200000.0f
-#define CPU_TICK_WAIT (1'000'000'000 / 60)
+constexpr u64 CpuTimeOutNs = 500'000'000;
+constexpr double Systemtickfrequency = 19200000.0 * (static_cast<double>(CpuTimeOutNs) / 1'000'000'000.0);
+Result nvInitialize_rc;
 Result nvCheck = 1;
+Result nvCheck_sched = 1;
 
+LEvent threadexit;
 Thread gpuLThread;
 Thread cpuCore0Thread;
 Thread cpuCore1Thread;
@@ -64,20 +70,37 @@ Result pwmDutyCycleCheck = 1;
 double Rotation_Duty = 0;
 u8 fanLevel;
 
-uint32_t GPU_Load_u = 0, fd = 0;
+uint32_t GPU_Load_u = 0, fd = 0, fd2 = 0;
 BatteryChargeInfo info;
 
 static SysClkSocType g_socType = SysClkSocType_Erista;
-static HorizonOCConsoleType g_consoleType = HorizonOCConsoleType_Iowa;
+static SysClkConsoleType g_consoleType = SysClkConsoleType_Iowa;
 
-std::atomic<uint64_t> idletick0{systemtickfrequency};
-std::atomic<uint64_t> idletick1{systemtickfrequency};
-std::atomic<uint64_t> idletick2{systemtickfrequency};
-std::atomic<uint64_t> idletick3{systemtickfrequency};
+u64 idletick0 = 0;
+u64 idletick1 = 0;
+u64 idletick2 = 0;
+// u64 idletick3 = 0;
+
 u32 cpu0, cpu1, cpu2, cpu3, cpuAvg;
 u16 cpuSpeedo0, cpuSpeedo2, socSpeedo0; // CPU, GPU, SOC
+u32 speedoBracket;
 u16 cpuIDDQ, gpuIDDQ, socIDDQ;
 u8 g_dramID = 0;
+u64 cldvfs, cldvfs_temp;
+u32 cachedEristaUvLowTune0 = 0, cachedEristaUvLowTune1 = 0, cachedMarikoUvHighTune0 = 0;
+
+static const u32 ramBrackets[][22] = {
+    { 2133, 2200, 2266, 2300, 2366, 2400, 2433, 2466, 2533, 2566, 2600, 2633, 2700, 2733, 2766, 2833, 2866, 2900, 2933, 3033, 3066, 3100, },
+    { 2300, 2366, 2433, 2466, 2533, 2566, 2633, 2700, 2733, 2800, 2833, 2900, 2933, 2966, 3033, 3066, 3100, 3133, 3166, 3200, 3233, 3266, },
+    { 2433, 2466, 2533, 2600, 2666, 2733, 2766, 2800, 2833, 2866, 2933, 2966, 3033, 3066, 3100, 3133, 3166, 3200, 3233, 3300, 3333, 3366, },
+    { 2500, 2533, 2600, 2633, 2666, 2733, 2800, 2866, 2900, 2966, 3033, 3100, 3166, 3200, 3233, 3266, 3300, 3333, 3366, 3400, 3400, 3400, },
+};
+
+static const u32 gpuDvfsArray[] = { 590, 600, 610, 620, 630, 640, 650, 660, 670, 680, 690, 700, 710, 720, 730, 740, 750, 760, 770, 780, 790, 800};
+
+u32 dvfsTable[6][32] = {};
+u64 dvfsAddress;
+u32 ramVmin;
 
 const char* Board::GetModuleName(SysClkModule module, bool pretty)
 {
@@ -129,16 +152,16 @@ PcvModuleId Board::GetPcvModuleId(SysClkModule sysclkModule)
     return pcvModuleId;
 }
 
-void CheckCore(void* idletick_ptr) {
-    std::atomic<uint64_t>* idletick = (std::atomic<uint64_t>*)idletick_ptr;
-    while (true) {
-        uint64_t idletick_a;
-        uint64_t idletick_b;
-        svcGetInfo(&idletick_b, InfoType_IdleTickCount, INVALID_HANDLE, -1);
-        svcSleepThread(CPU_TICK_WAIT);
-        svcGetInfo(&idletick_a, InfoType_IdleTickCount, INVALID_HANDLE, -1);
-        idletick->store(idletick_a - idletick_b, std::memory_order_release);
-    }
+void CheckCore(void *idletickPtr) {
+	u64* idletick = static_cast<u64 *>(idletickPtr);
+	while(true) {
+		u64 idletickA;
+		u64 idletickB;
+		svcGetInfo(&idletickB, InfoType_IdleTickCount, INVALID_HANDLE, -1);
+		svcWaitForAddress(&threadexit, ArbitrationType_WaitIfEqual, 0, CpuTimeOutNs);
+		svcGetInfo(&idletickA, InfoType_IdleTickCount, INVALID_HANDLE, -1);
+		*idletick = idletickA - idletickB;
+	}
 }
 
 void gpuLoadThread(void*) {
@@ -203,7 +226,11 @@ void Board::Initialize()
     rc = tmp451Initialize();
     ASSERT_RESULT_OK(rc, "tmp451Initialize");
 
-    if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
+    nvInitialize_rc = nvInitialize();
+    if (R_SUCCEEDED(nvInitialize_rc)) {
+        nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
+        nvCheck_sched = nvOpen(&fd2, "/dev/nvsched-ctrl");
+    }
 
     rc = rgltrInitialize();
     ASSERT_RESULT_OK(rc, "rgltrInitialize");
@@ -218,18 +245,19 @@ void Board::Initialize()
 
     threadCreate(&gpuLThread, gpuLoadThread, NULL, NULL, 0x1000, 0x3F, -2);
 	threadStart(&gpuLThread);
-
-    threadCreate(&cpuCore0Thread, CheckCore, &idletick0, NULL, 0x500, 0x10, 0);
-    threadCreate(&cpuCore1Thread, CheckCore, &idletick1, NULL, 0x500, 0x10, 1);
-    threadCreate(&cpuCore2Thread, CheckCore, &idletick2, NULL, 0x500, 0x10, 2);
-    threadCreate(&cpuCore3Thread, CheckCore, &idletick3, NULL, 0x500, 0x10, 3);
-    threadCreate(&miscThread, miscThreadFunc, NULL, NULL, 0x1000, 0x3F, 3);
+    leventClear(&threadexit);
+    threadCreate(&cpuCore0Thread, CheckCore, &idletick0, NULL, 0x1000, 0x10, 0);
+    threadCreate(&cpuCore1Thread, CheckCore, &idletick1, NULL, 0x1000, 0x10, 1);
+    threadCreate(&cpuCore2Thread, CheckCore, &idletick2, NULL, 0x1000, 0x10, 2);
+    // threadCreate(&cpuCore3Thread, CheckCore, &idletick3, NULL, 0x1000, 0x10, 3);
+    threadCreate(&miscThread, miscThreadFunc, NULL, NULL, 0x1000, 0x10, 3);
 
     threadStart(&cpuCore0Thread);
     threadStart(&cpuCore1Thread);
     threadStart(&cpuCore2Thread);
-    threadStart(&cpuCore3Thread);
+    // threadStart(&cpuCore3Thread);
     threadStart(&miscThread);
+
     batteryInfoInitialize();
 
     if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
@@ -237,6 +265,18 @@ void Board::Initialize()
     }
 
     FetchHardwareInfos();
+
+    rc = svcQueryMemoryMapping(&cldvfs, &cldvfs_temp, CLDVFS_REGION_BASE, CLDVFS_REGION_SIZE);
+    ASSERT_RESULT_OK(rc, "svcQueryMemoryMapping (cldvfs)");
+    if(Board::GetSocType() == SysClkSocType_Erista) {
+        cachedEristaUvLowTune0 = *(u32*)(cldvfs + CL_DVFS_TUNE0_0);
+        cachedEristaUvLowTune1 = *(u32*)(cldvfs + CL_DVFS_TUNE1_0);
+    } else {
+        Board::SetHz(SysClkModule_CPU, 1785000000);
+        cachedMarikoUvHighTune0 = *(u32*)(cldvfs + CL_DVFS_TUNE0_0);
+        Board::ResetToStockCpu();
+    }
+
 }
 
 void Board::fuseReadSpeedos() {
@@ -292,30 +332,30 @@ void Board::fuseReadSpeedos() {
     svcCloseHandle(debug);
 }
 
-u16 Board::getSpeedo(HorizonOCSpeedo speedoType) {
+u16 Board::getSpeedo(SysClkSpeedo speedoType) {
     switch(speedoType) {
-        case HorizonOCSpeedo_CPU:
+        case SysClkSpeedo_CPU:
             return cpuSpeedo0;
-        case HorizonOCSpeedo_GPU:
+        case SysClkSpeedo_GPU:
             return cpuSpeedo2;
-        case HorizonOCSpeedo_SOC:
+        case SysClkSpeedo_SOC:
             return socSpeedo0;
         default:
-            ASSERT_ENUM_VALID(HorizonOCSpeedo, speedoType);
+            ASSERT_ENUM_VALID(SysClkSpeedo, speedoType);
             return 0;
     }
 }
 
-u16 Board::getIDDQ(HorizonOCSpeedo speedoType) {
+u16 Board::getIDDQ(SysClkSpeedo speedoType) {
     switch(speedoType) {
-        case HorizonOCSpeedo_CPU:
+        case SysClkSpeedo_CPU:
             return cpuIDDQ;
-        case HorizonOCSpeedo_GPU:
+        case SysClkSpeedo_GPU:
             return gpuIDDQ;
-        case HorizonOCSpeedo_SOC:
+        case SysClkSpeedo_SOC:
             return socIDDQ;
         default:
-            ASSERT_ENUM_VALID(HorizonOCSpeedo, speedoType);
+            ASSERT_ENUM_VALID(SysClkSpeedo, speedoType);
             return 0;
     }
 }
@@ -347,7 +387,7 @@ void Board::Exit()
     threadClose(&cpuCore0Thread);
     threadClose(&cpuCore1Thread);
     threadClose(&cpuCore2Thread);
-    threadClose(&cpuCore3Thread);
+    // threadClose(&cpuCore3Thread);
     threadClose(&miscThread);
 
     pwmChannelSessionClose(&g_ICon);
@@ -388,7 +428,6 @@ SysClkProfile Board::GetProfile()
 void Board::SetHz(SysClkModule module, std::uint32_t hz)
 {
     Result rc = 0;
-
     if(HOSSVC_HAS_CLKRST)
     {
         ClkrstSession session = {0};
@@ -397,13 +436,22 @@ void Board::SetHz(SysClkModule module, std::uint32_t hz)
         ASSERT_RESULT_OK(rc, "clkrstOpenSession");
         rc = clkrstSetClockRate(&session, hz);
         ASSERT_RESULT_OK(rc, "clkrstSetClockRate");
-
+        if (module == SysClkModule_CPU) {
+            svcSleepThread(300'000);
+            rc = clkrstSetClockRate(&session, hz);
+            ASSERT_RESULT_OK(rc, "clkrstSetClockRate");
+        }
         clkrstCloseSession(&session);
     }
     else
     {
         rc = pcvSetClockRate(Board::GetPcvModule(module), hz);
         ASSERT_RESULT_OK(rc, "pcvSetClockRate");
+        if (module == SysClkModule_CPU) {
+            svcSleepThread(300'000);
+            rc = pcvSetClockRate(Board::GetPcvModule(module), hz);
+            ASSERT_RESULT_OK(rc, "pcvSetClockRate");
+        }
     }
 }
 
@@ -656,11 +704,11 @@ std::uint32_t Board::GetTemperatureMilli(SysClkThermalSensor sensor)
             ASSERT_RESULT_OK(rc, "tcGetSkinTemperatureMilliC");
         }
     }
-    else if (sensor == HorizonOCThermalSensor_Battery) {
+    else if (sensor == SysClkThermalSensor_Battery) {
         batteryInfoGetChargeInfo(&info);
         millis = batteryInfoGetTemperatureMiliCelsius(&info);
     }
-    else if (sensor == HorizonOCThermalSensor_PMIC) {
+    else if (sensor == SysClkThermalSensor_PMIC) {
         millis = 50000;
     }
     else
@@ -686,6 +734,14 @@ std::int32_t Board::GetPowerMw(SysClkPowerSensor sensor)
     return 0;
 }
 
+u32 GetMaxCpuLoad() {
+    float cpuUsage0 = std::clamp(((Systemtickfrequency - idletick0) / static_cast<double>(Systemtickfrequency)) * 1000.0, 0.0, 1000.0);
+    float cpuUsage1 = std::clamp(((Systemtickfrequency - idletick1) / static_cast<double>(Systemtickfrequency)) * 1000.0, 0.0, 1000.0);
+    float cpuUsage2 = std::clamp(((Systemtickfrequency - idletick2) / static_cast<double>(Systemtickfrequency)) * 1000.0, 0.0, 1000.0);
+    // float cpuUsage3 = std::clamp(((Systemtickfrequency - idletick3) / static_cast<double>(Systemtickfrequency)) * 1000.0, 0.0, 1000.0);
+
+    return std::round(std::max({cpuUsage0, cpuUsage1, cpuUsage2}));
+}
 std::uint32_t Board::GetPartLoad(SysClkPartLoad loadSource)
 {		
     switch(loadSource)
@@ -696,8 +752,8 @@ std::uint32_t Board::GetPartLoad(SysClkPartLoad loadSource)
             return t210EmcLoadCpu();
         case SysClkPartLoad_GPU:
             return GPU_Load_u;
-        case SysClkPartLoad_CPUAvg:
-            return idletick0;
+        case SysClkPartLoad_CPUMax:
+            return GetMaxCpuLoad();
         case SysClkPartLoad_BAT:
             batteryInfoGetChargeInfo(&info);
             return info.BatteryAge;
@@ -715,7 +771,7 @@ SysClkSocType Board::GetSocType() {
     return g_socType;
 }
 
-HorizonOCConsoleType Board::GetConsoleType() {
+SysClkConsoleType Board::GetConsoleType() {
     return g_consoleType;
 }
 
@@ -750,7 +806,7 @@ void Board::FetchHardwareInfos()
             g_socType = SysClkSocType_Erista;
     }
 
-    g_consoleType = (HorizonOCConsoleType)sku;
+    g_consoleType = (SysClkConsoleType)sku;
     g_dramID = (u8)dramID;
 
 }
@@ -859,19 +915,317 @@ std::uint32_t Board::GetVoltage(SysClkVoltage voltage)
 
     return out > 0 ? out : 0;
 }
+void Board::SetSpeedoBracket() {
+    if (cpuSpeedo2 >= 1754) {
+        speedoBracket = 3;
+    } else if (cpuSpeedo2 >= 1690) {
+        speedoBracket = 2;
+    } else if (cpuSpeedo2 > 1625) {
+        speedoBracket = 1;
+    } else {
+        speedoBracket = 0;
+    }
+}
 
-#define MC_REGISTER_BASE 0x70019000
-#define MC_REGISTER_REGION_SIZE 0x1000
-#define MC_EMEM_CFG_0 0x50
+u32 Board::GetMinimumGpuVoltage(u32 freqMhz) {
+    if (freqMhz <= 1600)
+        return 0;
+
+    for (u32 voltageIndex = 0; voltageIndex < 22; ++voltageIndex) {
+        if (freqMhz <= ramBrackets[speedoBracket][voltageIndex]) {
+            return gpuDvfsArray[voltageIndex];
+        }
+    }
+
+    return 800;
+}
+
+Handle Board::GetPcvHandle() {
+    constexpr u64 PcvID = 0x10000000000001a;
+    u64 processIDList[80]{};
+    s32 processCount    = 0;
+    Handle handle       = INVALID_HANDLE;
+
+    DebugEventInfo debugEvent{};
+
+    /* Get all running processes. */
+    Result resultGetProcessList = svcGetProcessList(&processCount, processIDList, std::size(processIDList));
+    if (R_FAILED(resultGetProcessList)) {
+        return INVALID_HANDLE;
+    }
+
+    /* Try to find pcv. */
+    for (int i = 0; i < processCount; ++i) {
+        if (handle != INVALID_HANDLE) {
+            svcCloseHandle(handle);
+            handle = INVALID_HANDLE;
+        }
+
+        /* Try to debug process, if it fails, try next process. */
+        Result resultSvcDebugProcess = svcDebugActiveProcess(&handle, processIDList[i]);
+        if (R_FAILED(resultSvcDebugProcess)) {
+            continue;
+        }
+
+        /* Try to get a debug event. */
+        Result resultDebugEvent = svcGetDebugEvent(&debugEvent, handle);
+        if (R_SUCCEEDED(resultDebugEvent)) {
+            if (debugEvent.info.create_process.program_id == PcvID) {
+                return handle;
+            }
+        }
+    }
+
+    /* Failed to get handle. */
+    return INVALID_HANDLE;
+}
+
+void Board::CacheDvfsTable() {
+    const u32 voltagePattern[] = { 600000, 12500, 1400000, };
+
+    Handle handle = GetPcvHandle();
+    if (handle == INVALID_HANDLE) {
+        FileUtils::LogLine("[Board] Invalid handle!");
+        return;
+    }
+
+    MemoryInfo memoryInfo = {};
+    u64 address = 0;
+    u32 pageInfo = 0;
+    constexpr u32 PageSize = 0x1000;
+    u8 buffer[PageSize];
+
+    /* Loop until failure. */
+    while (true) {
+        /* Find pcv heap. */
+        while (true) {
+            Result resultProcessMemory = svcQueryDebugProcessMemory(&memoryInfo, &pageInfo, handle, address);
+            address = memoryInfo.addr + memoryInfo.size;
+
+            if (R_FAILED(resultProcessMemory) || !address) {
+                svcCloseHandle(handle);
+                FileUtils::LogLine("[Board] Failed to get process data. %u", R_DESCRIPTION(resultProcessMemory));
+                handle = INVALID_HANDLE;
+                return;
+            }
+
+            if (memoryInfo.size && (memoryInfo.perm & 3) == 3 && static_cast<char>(memoryInfo.type) == 0x04) {
+                /* Found valid memory. */
+                break;
+            }
+        }
+
+        for (u64 base = 0; base < memoryInfo.size; base += PageSize) {
+            u32 memorySize = std::min(memoryInfo.size, static_cast<u64>(PageSize));
+            if (R_FAILED(svcReadDebugProcessMemory(buffer, handle, base + memoryInfo.addr, memorySize))) {
+                break;
+            }
+
+            u8 *resultPattern = static_cast<u8 *>(memmem_impl(buffer, sizeof(buffer), voltagePattern, sizeof(voltagePattern)));
+            u32 index = resultPattern - buffer;
+
+            if (!resultPattern) {
+                continue;
+            }
+
+            /* Assuming mariko. */
+            const u32 vmax = 800;
+            constexpr u32 DvfsTableOffset = 312;
+            if (!std::memcmp(&buffer[index + DvfsTableOffset], &vmax, sizeof(vmax))) {
+                std::memcpy(dvfsTable, &buffer[index + DvfsTableOffset], sizeof(dvfsTable));
+                dvfsAddress = base + memoryInfo.addr + DvfsTableOffset + index;
+            }
+
+            svcCloseHandle(handle);
+            handle = INVALID_HANDLE;
+            return;
+        }
+    }
+
+    svcCloseHandle(handle);
+    handle = INVALID_HANDLE;
+    return;
+}
+
+void Board::PcvHijackDvfs(u32 vmin) {
+    u32 table[192];
+    static_assert(sizeof(table) == sizeof(dvfsTable));
+    std::memcpy(table, dvfsTable, sizeof(dvfsTable));
+
+    if (ramVmin == vmin) {
+        return;
+    }
+
+    for (u32 i = 0; i < std::size(table); ++i) {
+        if (table[i] && table[i] <= vmin) {
+            table[i] = vmin;
+        }
+    }
+
+    Handle handle = GetPcvHandle();
+    if (handle == INVALID_HANDLE) {
+        FileUtils::LogLine("Invalid handle!");
+        return;
+    }
+
+    Result rc = svcWriteDebugProcessMemory(handle, table, dvfsAddress, sizeof(table));
+
+    if (R_SUCCEEDED(rc)) {
+        ramVmin = vmin;
+    }
+
+    svcCloseHandle(handle);
+    FileUtils::LogLine("[dvfs] voltage set to %u mV", vmin);
+}
 
 bool Board::IsDram8GB() {
-    SecmonArgs args = {};                                         
-    args.X[0] = 0xF0000002;                             
-    args.X[1] = MC_REGISTER_BASE + MC_EMEM_CFG_0;    
-    svcCallSecureMonitor(&args);                        
+    SecmonArgs args = {};
+    args.X[0] = 0xF0000002;
+    args.X[1] = MC_REGISTER_BASE + MC_EMEM_CFG_0;
+    svcCallSecureMonitor(&args);
 
     if(args.X[1] == (MC_REGISTER_BASE + MC_EMEM_CFG_0)) { // if param 1 is identical read failed
+        // writeNotification("Horizon OC\nSecmon read failed!\n This may be a hardware issue!");
         return false;
     }  else
         return args.X[1] == 0x00002000 ? true : false;
+}
+
+void Board::SetGpuSchedulingMode(GpuSchedulingMode mode) {
+    if (nvCheck_sched == 1) {
+        return;
+    }
+    u32 temp;
+    switch(mode) {
+        case GpuSchedulingMode_DoNotOverride:
+            return;
+        case GpuSchedulingMode_Disabled:
+            nvIoctl(fd2, NVSCHED_CTRL_DISABLE, &temp);
+            break;
+        case GpuSchedulingMode_Enabled:
+            nvIoctl(fd2, NVSCHED_CTRL_ENABLE, &temp);
+            break;
+        default:
+            ASSERT_ENUM_VALID(GpuSchedulingMode, mode);
+    }
+}
+
+typedef struct EristaCpuUvEntry {
+    u32 tune0;
+    u32 tune1;
+} EristaCpuUvEntry;
+typedef struct MarikoCpuUvEntry {
+    u32 tune0_low;
+    u32 tune0_high;
+    u32 tune1_low;
+    u32 tune1_high;
+} MarikoCpuUvEntry;
+
+EristaCpuUvEntry eristaCpuUvTable[5] = {
+    {0xffff, 0x27007ff},
+    {0xefff, 0x27407ff},
+    {0xdfff, 0x27807ff},
+    {0xdfdf, 0x27a07ff},
+    {0xcfdf, 0x37007ff},
+};
+
+MarikoCpuUvEntry marikoCpuUvLow[12] = {
+    {0xffa0, 0xffff, 0x21107ff, 0},
+    {0x0, 0xffdf, 0x21107ff, 0x27207ff},
+    {0xffdf, 0xffdf, 0x21107ff, 0x27307ff},
+    {0xffff, 0xffdf, 0x21107ff, 0x27407ff},
+    {0x0, 0xffdf, 0x21607ff, 0x27707ff},
+    {0x0, 0xffdf, 0x21607ff, 0x27807ff},
+    {0x0, 0xdfff, 0x21607ff, 0x27b07ff},
+    {0xdfff, 0xdfff, 0x21707ff, 0x27b07ff},
+    {0xdfff, 0xdfff, 0x21707ff, 0x27c07ff},
+    {0xdfff, 0xdfff, 0x21707ff, 0x27d07ff},
+    {0xdfff, 0xdfff, 0x21707ff, 0x27e07ff},
+    {0xdfff, 0xdfff, 0x21707ff, 0x27f07ff},
+};
+
+MarikoCpuUvEntry marikoCpuUvHigh[12] = {
+    {0x0, 0xffff, 0, 0},
+    {0x0, 0xffdf, 0, 0x27207ff},
+    {0x0, 0xffdf, 0, 0x27307ff},
+    {0x0, 0xffdf, 0, 0x27407ff},
+    {0x0, 0xffdf, 0, 0x27707ff},
+    {0x0, 0xffdf, 0, 0x27807ff},
+    {0x0, 0xdfff, 0, 0x27b07ff},
+    {0x0, 0xdfff, 0, 0x27c07ff},
+    {0x0, 0xdfff, 0, 0x27d07ff},
+    {0x0, 0xdfff, 0, 0x27e07ff},
+    {0x0, 0xdfff, 0, 0x27f07ff},
+    {0x0, 0xdfff, 0, 0x27f07ff},
+};
+void Board::SetCpuUvLevel(u32 levelLow, u32 levelHigh, u32 tbreakPoint) {
+
+    u32* tune0_ptr = (u32*)(cldvfs + CL_DVFS_TUNE0_0);
+    u32* tune1_ptr = (u32*)(cldvfs + CL_DVFS_TUNE1_0);
+    if(Board::GetSocType() == SysClkSocType_Mariko) { 
+        if(Board::GetHz(SysClkModule_CPU) < tbreakPoint && (levelLow || levelHigh)) {
+            if(levelLow) {
+                *tune0_ptr = marikoCpuUvLow[levelLow-1].tune0_low;
+                *tune1_ptr = marikoCpuUvLow[levelLow-1].tune1_low;
+            }
+            return;
+        } else {
+            if(levelLow) {
+                *tune0_ptr = marikoCpuUvLow[levelLow-1].tune0_low;
+                *tune1_ptr = marikoCpuUvLow[levelLow-1].tune1_low;
+            }
+            if(levelHigh) {
+                *tune0_ptr = marikoCpuUvHigh[levelHigh-1].tune0_high;
+                *tune1_ptr = marikoCpuUvHigh[levelHigh-1].tune1_high;
+            }
+            return;
+        }
+        if(Board::GetHz(SysClkModule_CPU) < tbreakPoint || (!levelLow)) { // account for tbreak
+            *tune0_ptr = 0xCFFF;
+            *tune1_ptr = 0xFF072201;
+            return;
+        } else if (Board::GetHz(SysClkModule_CPU) >= tbreakPoint || (!levelHigh)) {
+            *tune0_ptr = cachedMarikoUvHighTune0; // per console?
+            *tune1_ptr = 0xFFF7FF3F;
+            return;
+        } 
+    } else {
+        if(Board::GetHz(SysClkModule_CPU) < tbreakPoint || (!levelLow)) { // account for tbreak
+            *tune0_ptr = cachedEristaUvLowTune0; // I think each erista has a different tune0/tune1?
+            *tune1_ptr = cachedEristaUvLowTune1;
+            return;
+        } else {
+            if(levelLow) {
+                *tune0_ptr = eristaCpuUvTable[levelLow-1].tune0;
+                *tune1_ptr = eristaCpuUvTable[levelLow-1].tune1;
+            } else {
+                *tune0_ptr = 0x0;
+                *tune1_ptr = 0x0;
+            }
+        }
+    }
+}
+/*
+enum TableConfig: u32 {
+    DEFAULT_TABLE = 1,
+    TBREAK_1581 = 2,
+    TBREAK_1683 = 3,
+    EXTREME_TABLE = 4,
+};
+*/
+u32 Board::CalculateTbreak(u32 table) {
+    if(Board::GetSocType() == SysClkSocType_Erista)
+        return 1581000000;
+    else {
+        switch(table) {
+            case 1 ... 2:
+            case 4:
+                return 1581000000;
+            case 3:
+                return 1683000000;
+            default:
+                return 1581000000;
+        }
+    }
+    
 }

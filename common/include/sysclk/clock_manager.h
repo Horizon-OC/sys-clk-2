@@ -26,8 +26,8 @@ typedef struct
     int32_t power[SysClkPowerSensor_EnumMax];
     uint32_t partLoad[SysClkPartLoad_EnumMax];
     uint32_t voltages[SysClkVoltage_EnumMax];
-    u16 speedos[HorizonOCSpeedo_EnumMax];
-    u16 iddq[HorizonOCSpeedo_EnumMax];
+    u16 speedos[SysClkSpeedo_EnumMax];
+    u16 iddq[SysClkSpeedo_EnumMax];
     u8 maxDisplayFreq;
     u8 fps;
     u8 dramID;

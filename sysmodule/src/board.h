@@ -17,8 +17,8 @@ class Board
 {
   public:
     static void fuseReadSpeedos();
-    static u16 getSpeedo(HorizonOCSpeedo speedoType);
-    static u16 getIDDQ(HorizonOCSpeedo speedoType);
+    static u16 getSpeedo(SysClkSpeedo speedoType);
+    static u16 getIDDQ(SysClkSpeedo speedoType);
     static const char* GetProfileName(SysClkProfile profile, bool pretty);
     static const char* GetModuleName(SysClkModule module, bool pretty);
     static const char* GetThermalSensorName(SysClkThermalSensor sensor, bool pretty);
@@ -38,13 +38,22 @@ class Board
     static std::int32_t GetPowerMw(SysClkPowerSensor sensor);
     static std::uint32_t GetPartLoad(SysClkPartLoad load);
     static SysClkSocType GetSocType();
-    static HorizonOCConsoleType GetConsoleType();
+    static SysClkConsoleType GetConsoleType();
     static std::uint32_t GetVoltage(SysClkVoltage voltage);
     static u8 GetFanRotationLevel();
     static u8 GetDramID();
     static bool IsDram8GB();
+    static void SetCpuUvLevel(u32 levelLow, u32 levelHigh, u32 tbreakPoint);
+    static u32 CalculateTbreak(u32 table);
+    static void PcvHijackDvfs(u32 vmin);
+    static u32 GetMinimumGpuVoltage(u32 freqMhz);
+    static void SetGpuSchedulingMode(GpuSchedulingMode mode);
   protected:
     static void FetchHardwareInfos();
     static PcvModule GetPcvModule(SysClkModule sysclkModule);
     static PcvModuleId GetPcvModuleId(SysClkModule sysclkModule);
+  private:
+    static void SetSpeedoBracket();
+    static void CacheDvfsTable();
+    static Handle GetPcvHandle();
 };

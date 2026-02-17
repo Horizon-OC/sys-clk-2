@@ -60,42 +60,13 @@ ClockManager::ClockManager()
     this->lastTempLogNs = 0;
     this->lastCsvWriteNs = 0;
 
-    for(int i = 0; i < HorizonOCSpeedo_EnumMax; i++) {
-        this->context->speedos[i] = Board::getSpeedo((HorizonOCSpeedo)i);
-        this->context->iddq[i] = Board::getIDDQ((HorizonOCSpeedo)i);
+    for(int i = 0; i < SysClkSpeedo_EnumMax; i++) {
+        this->context->speedos[i] = Board::getSpeedo((SysClkSpeedo)i);
+        this->context->iddq[i] = Board::getIDDQ((SysClkSpeedo)i);
     }
 
     this->context->dramID = Board::GetDramID();
     this->context->isDram8GB = Board::IsDram8GB();
-}
-
-
-void ClockManager::FixCpuBug() {
-    u32 targetHz = 0;
-    u32 maxHz = 0;
-    u32 nearestHz = 0;
-
-    // ResetToStockClocks();
-
-    targetHz = this->context->overrideFreqs[SysClkModule_CPU];
-    if (!targetHz) {
-        targetHz = this->config->GetAutoClockHz(this->context->applicationId, SysClkModule_CPU, this->context->profile, false);
-        if(!targetHz)
-            targetHz = this->config->GetAutoClockHz(GLOBAL_PROFILE_ID, SysClkModule_CPU, this->context->profile, false);
-    }
-
-    if (targetHz) {
-        maxHz = this->GetMaxAllowedHz(SysClkModule_CPU, this->context->profile);
-        nearestHz = this->GetNearestHz(SysClkModule_CPU, targetHz, maxHz);
-
-        while ((nearestHz = this->GetNearestHz(SysClkModule_CPU, targetHz, maxHz)) != targetHz) {
-            Board::SetHz(SysClkModule_CPU, 1020000000);
-            svcSleepThread(1'000'000);
-            Board::SetHz(SysClkModule_CPU, maxHz);
-            this->context->freqs[SysClkModule_CPU] = maxHz;
-        }
-        Board::SetHz(SysClkModule_CPU, targetHz);
-    }
 }
 
 ClockManager::~ClockManager()
@@ -247,7 +218,7 @@ void ClockManager::Tick()
     ASSERT_RESULT_OK(rc, "apmExtGetCurrentPerformanceConfiguration");
 
     if(this->config->GetConfigValue(SysClkConfigValue_HandheldTDP) && opMode == AppletOperationMode_Handheld) {
-        if(Board::GetConsoleType() == HorizonOCConsoleType_Hoag) {
+        if(Board::GetConsoleType() == SysClkConsoleType_Hoag) {
             if(Board::GetPowerMw(SysClkPowerSensor_Now) < -(int)this->config->GetConfigValue(SysClkConfigValue_LiteTDPLimit)) {
                 ResetToStockClocks();
                 return;
@@ -257,13 +228,6 @@ void ClockManager::Tick()
                 ResetToStockClocks();
                 return;
             }
-        }
-    }
-
-    if(this->config->GetConfigValue(SysClkConfigValue_EnforceBoardLimit) && opMode == AppletOperationMode_Console ) {
-        if(Board::GetPowerMw(SysClkPowerSensor_Now) < 0) {
-            ResetToStockClocks();
-            return;
         }
     }
 
@@ -312,9 +276,14 @@ void ClockManager::Tick()
 
                     Board::SetHz((SysClkModule)module, nearestHz);
                     this->context->freqs[module] = nearestHz;
-                }
-                if(module == SysClkModule_CPU && this->config->GetConfigValue(SysClkConfigValue_FixCpuVoltBug)) {
-                    FixCpuBug();
+
+                    if(module == SysClkModule_CPU) {
+                        if(Board::GetSocType() == SysClkSocType_Mariko) {
+                            Board::SetCpuUvLevel(this->config->GetConfigValue(SysClkConfigValue_MarikoCpuUvLow), this->config->GetConfigValue(SysClkConfigValue_MarikoCpuUvHigh), 1581000000);
+                        } else {
+                            Board::SetCpuUvLevel(this->config->GetConfigValue(SysClkConfigValue_EristaCpuUv), 0, 1581000000);
+                        }
+                    }
                 }
             }
         }
@@ -323,9 +292,10 @@ void ClockManager::Tick()
 
 void ClockManager::ResetToStockClocks() {
     Board::ResetToStockCpu();
-    svcSleepThread(1 * 1000000ULL); // 5 seconds in sleep mode
-    if(this->config->GetConfigValue(SysClkConfigValue_FixCpuVoltBug)) {
-        FixCpuBug();
+    if(Board::GetSocType() == SysClkSocType_Mariko) {
+        Board::SetCpuUvLevel(this->config->GetConfigValue(SysClkConfigValue_MarikoCpuUvLow), this->config->GetConfigValue(SysClkConfigValue_MarikoCpuUvHigh), 1581000000);
+    } else {
+        Board::SetCpuUvLevel(this->config->GetConfigValue(SysClkConfigValue_EristaCpuUv), 0, 1581000000);
     }
     Board::ResetToStockGpu();
 }
@@ -396,6 +366,11 @@ bool ClockManager::RefreshContext()
                 case SysClkModule_CPU:
                     if(!(apmExtIsBoostMode(mode) || (this->config->GetConfigValue(SysClkConfigValue_OverwriteBoostMode) && apmExtIsBoostMode(mode))))
                         Board::ResetToStockCpu();
+                        if(Board::GetSocType() == SysClkSocType_Mariko) {
+                            Board::SetCpuUvLevel(this->config->GetConfigValue(SysClkConfigValue_MarikoCpuUvLow), this->config->GetConfigValue(SysClkConfigValue_MarikoCpuUvHigh), 1581000000);
+                        } else {
+                            Board::SetCpuUvLevel(this->config->GetConfigValue(SysClkConfigValue_EristaCpuUv), 0, 1581000000);
+                        }
                     break;
                 case SysClkModule_GPU:
                     Board::ResetToStockGpu();

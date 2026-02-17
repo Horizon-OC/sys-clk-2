@@ -3,8 +3,8 @@
 	"title_id": "0x00FF0000636C6BFF",
 	"title_id_range_min": "0x00FF0000636C6BFF",
 	"title_id_range_max": "0x00FF0000636C6BFF",
-	"main_thread_stack_size": "0x00008000",
-	"main_thread_priority": 63,
+	"main_thread_stack_size": "0x0000C000",
+	"main_thread_priority": 16,
 	"default_cpu_id": 3,
 	"process_category": 0,
 	"is_retail": true,
@@ -25,7 +25,7 @@
 			"type": "kernel_flags",
 			"value": {
 				"highest_thread_priority": 63,
-				"lowest_thread_priority": 41,
+				"lowest_thread_priority": 16,
 				"lowest_cpu_id": 0,
 				"highest_cpu_id": 3
 			}
@@ -52,6 +52,15 @@
 			"type": "map",
 			"value": {
 				"address": "0x6000C000",
+				"size": "0x1000",
+				"is_ro": false,
+				"is_io": true
+			}
+		},
+		{
+			"type": "map",
+			"value": {
+				"address": "0x70110000",
 				"size": "0x1000",
 				"is_ro": false,
 				"is_io": true
